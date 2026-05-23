@@ -12,7 +12,7 @@ async def get_config() -> dict:
     """获取当前配置（每次请求读取最新值）"""
     config_path = os.path.join(CONFIG_DIR, "config.json")
     cfg = {
-        "url": "", "key": "", "model": "", "hide_think": True,
+        "url": "", "key": "", "model": "",
         "ai_name": "", "user_name": "", "api_format": "openai"
     }
     loaded = await safe_json_read(config_path, {})

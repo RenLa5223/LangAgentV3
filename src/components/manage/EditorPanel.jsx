@@ -364,7 +364,6 @@ function getDecayScore(item) {
   }
 }
 
-// 旧版 3 档鲜活度映射 (来自 static/js/ui.js:670-673)
 function getMemoryState(score) {
   if (score >= 7) return { label: '鲜明', color: '#52b788' }
   if (score >= 4) return { label: '模糊', color: '#d4a373' }
