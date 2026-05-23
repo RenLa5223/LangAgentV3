@@ -18,7 +18,7 @@
 - **多模型兼容** — 支持 OpenAI 和 Anthropic 两种 API 格式，可探测远端模型列表
 - **长短期记忆** — 短期对话上下文 + 艾宾浩斯遗忘曲线评分 + 长期记忆摘要压缩
 - **RAG 检索** — 双字倒排索引，对话内容自动归档并支持关键词检索
-- **人物系统** — Agent 档案、用户画像、人物内心独白，可编辑与管理
+- **人物系统** — Agent 档案、用户档案、用户画像，可编辑与管理
 - **主动消息** — 可配置时间窗口和间隔的自动触发消息
 - **图片对话** — 支持粘贴/上传图片，通过多模态模型分析
 - **语音输入** — 基于 Web Speech API 的浏览器端语音识别
@@ -113,7 +113,7 @@ LangAgentV3/
     ├── agent_profile/               # Agent 人物档案
     ├── avatars/agent/ user/         # 头像文件
     ├── config/                      # 模型配置 config.json
-    ├── inner_thoughts/              # AI 内心独白
+    ├── user_portrait/               # 用户画像（AI 对用户的观察与记录）
     ├── logs/                        # 运行日志
     ├── memory_archive/              # 记忆归档 (archive_db / inverted_index)
     ├── memory_core/                 # 短期记忆 (chat_history / memory_summary)

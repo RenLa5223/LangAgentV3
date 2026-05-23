@@ -2,7 +2,7 @@
 """配置读写业务服务层"""
 import os
 import json
-from app.core.config import DATA_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR, INNER_THOUGHTS_DIR, MEM_DIR
+from app.core.config import DATA_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR, USER_PORTRAIT_DIR, MEM_DIR
 from app.core.config import AGENT_AVATAR_DIR, USER_AVATAR_DIR
 from app.utils.fs_lock import safe_json_read, atomic_json_write, safe_text_read, safe_text_write
 from app.utils.constants import ALLOWED_FOLDERS as AF
@@ -65,7 +65,7 @@ async def reset_system():
     for p in [
         os.path.join(AGENT_PROFILE_DIR, "agent_profile.txt"),
         os.path.join(USER_PROFILE_DIR, "user_profile.txt"),
-        os.path.join(INNER_THOUGHTS_DIR, "inner_thoughts.txt"),
+        os.path.join(USER_PORTRAIT_DIR, "user_portrait.txt"),
     ]:
         if os.path.exists(p):
             os.remove(p)

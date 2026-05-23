@@ -50,7 +50,7 @@ export default function WizardModal() {
         `姓名：${name1}\n核心性格：请在这里描写${name1}的人设...`)
       await initFile('user_profile', 'user_profile.txt',
         `姓名：${name2}\n特征：请在这里描写关于你的基础信息...`)
-      await initFile('inner_thoughts', 'inner_thoughts.txt', '')
+      await initFile('user_portrait', 'user_portrait.txt', '')
 
       addToast(`${name1} 已唤醒`, 'success')
       setShow(false)

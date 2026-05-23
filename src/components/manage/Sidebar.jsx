@@ -5,7 +5,7 @@ import { fetchVersion } from '@/api/request.js'
 const TOP_ITEMS = [
   { id: 'agent-profile', label: '人物档案', icon: '👤' },
   { id: 'user-profile', label: '用户档案', icon: '🙋' },
-  { id: 'inner-thoughts', label: '人物内心', icon: '💭' }
+  { id: 'user-portrait', label: '用户画像', icon: '🖼️' }
 ]
 
 const BOTTOM_ITEMS = [

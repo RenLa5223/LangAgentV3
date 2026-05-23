@@ -301,7 +301,7 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
                 __import__('app.core.memory_engine', fromlist=['MEM_DIR']),
                 'MEM_DIR', mem_dir
             ), patch(
-                'app.core.memory_engine.INNER_THOUGHTS_DIR', tmp_data
+                'app.core.memory_engine.USER_PORTRAIT_DIR', tmp_data
             ), patch(
                 'app.core.memory_engine.call_llm_with_circuit_breaker'
             ) as mock_llm:
@@ -328,7 +328,7 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
             with patch.object(
                 __import__('app.core.memory_engine', fromlist=['MEM_DIR']),
                 'MEM_DIR', tmp_data
-            ), patch('app.core.memory_engine.INNER_THOUGHTS_DIR', tmp_data), \
+            ), patch('app.core.memory_engine.USER_PORTRAIT_DIR', tmp_data), \
               patch('app.core.memory_engine.MEMORY_RETRY_DIR', tmp_data), \
               patch('app.core.memory_engine.call_llm_with_circuit_breaker') as mock_llm:
                 mock_llm.return_value = None
@@ -338,7 +338,7 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
                 retry_files = [f for f in os.listdir(tmp_data) if f.endswith('.json')]
                 self.assertGreaterEqual(len(retry_files), 1)
 
-    async def test_auto_summarize_appends_inner_thoughts(self):
+    async def test_auto_summarize_appends_user_portrait(self):
         import tempfile
         from unittest.mock import patch
         from app.core.memory_engine import auto_summarize_memory
@@ -352,11 +352,11 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
                       '"new_user_profile": "饮品偏好：咖啡"}')
 
         with tempfile.TemporaryDirectory() as tmp_data:
-            inner_path = os.path.join(tmp_data, "inner_thoughts.txt")
+            inner_path = os.path.join(tmp_data, "user_portrait.txt")
             with patch.object(
                 __import__('app.core.memory_engine', fromlist=['MEM_DIR']),
                 'MEM_DIR', tmp_data
-            ), patch('app.core.memory_engine.INNER_THOUGHTS_DIR', tmp_data), \
+            ), patch('app.core.memory_engine.USER_PORTRAIT_DIR', tmp_data), \
               patch('app.core.memory_engine.call_llm_with_circuit_breaker') as mock_llm:
                 mock_llm.return_value = mock_reply
                 await auto_summarize_memory(cfg, history)

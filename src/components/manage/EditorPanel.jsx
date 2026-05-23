@@ -211,15 +211,15 @@ function UserProfileEditor({ saveHandlerRef }) {
 }
 
 // ================================================================
-// Sub-panel: 人物内心
+// Sub-panel: 用户画像
 // ================================================================
-function InnerThoughtsEditor({ saveHandlerRef }) {
+function UserPortraitEditor({ saveHandlerRef }) {
   const agentName = useConfigStore((s) => s.agentName)
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadTextFile('inner_thoughts', 'inner_thoughts.txt', '')
+    loadTextFile('user_portrait', 'user_portrait.txt', '')
       .then((text) => {
         setContent(text)
         setLoading(false)
@@ -227,7 +227,7 @@ function InnerThoughtsEditor({ saveHandlerRef }) {
   }, [agentName])
 
   useEffect(() => {
-    saveHandlerRef.current = () => saveFile('inner_thoughts', 'inner_thoughts.txt', content)
+    saveHandlerRef.current = () => saveFile('user_portrait', 'user_portrait.txt', content)
   }, [content, saveHandlerRef])
 
   if (loading) return <div className="flex-1 flex items-center justify-center text-text-sub">加载中...</div>
@@ -235,7 +235,7 @@ function InnerThoughtsEditor({ saveHandlerRef }) {
   return (
     <div className="flex flex-col flex-1">
       <h1 className="text-text-sub border-l-[5px] border-primary pl-4 mt-0 mb-5 text-2xl">
-        <span>人物内心</span>
+        <span>用户画像</span>
       </h1>
       <div className="text-sm text-[#e07a5f] bg-[rgba(224,122,95,0.1)] p-3 rounded-lg mb-4 border-l-4 border-[#e07a5f] leading-relaxed">
         自动化区域：AI 会自动记录并提取用户的最新情报，结合旧情报在这里生成【用户画像】。
@@ -937,7 +937,7 @@ function SettingsEditor({ saveHandlerRef }) {
 const PANELS = {
   'agent-profile': AgentProfileEditor,
   'user-profile': UserProfileEditor,
-  'inner-thoughts': InnerThoughtsEditor,
+  'user-portrait': UserPortraitEditor,
   'short-memory': ShortMemoryEditor,
   'memory-manage': MemoryManageEditor,
   'memory-archive': MemoryArchiveEditor,

@@ -9,7 +9,7 @@ import uuid
 
 from app.core.config import (
     state, MEM_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR,
-    INNER_THOUGHTS_DIR, MEMORY_RETRY_DIR, get_decay_score, get_now
+    USER_PORTRAIT_DIR, MEMORY_RETRY_DIR, get_decay_score, get_now
 )
 from app.utils.fs_lock import safe_json_read, atomic_json_write, safe_text_read, safe_text_write, safe_text_append
 from app.core.llm_engine import call_llm_with_circuit_breaker
@@ -73,8 +73,8 @@ async def auto_summarize_memory(cfg: dict, recent_history: list, is_retry: bool 
             logger.error(f"[Memory Engine] RAG 归档异常: {e}")
 
     try:
-        inner_thoughts_path = os.path.join(INNER_THOUGHTS_DIR, "inner_thoughts.txt")
-        current_inner_thoughts = await safe_text_read(inner_thoughts_path)
+        user_portrait_path = os.path.join(USER_PORTRAIT_DIR, "user_portrait.txt")
+        current_user_portrait = await safe_text_read(user_portrait_path)
 
         ai_name = cfg.get("ai_name", "AI")
         user_name = cfg.get("user_name", "用户")
@@ -92,7 +92,7 @@ async def auto_summarize_memory(cfg: dict, recent_history: list, is_retry: bool 
 
 # 已有情报参考（避免重复）
 <existing_profile>
-{current_inner_thoughts[-800:]}
+{current_user_portrait[-800:]}
 </existing_profile>
 
 # 输出格式
@@ -166,7 +166,7 @@ async def auto_summarize_memory(cfg: dict, recent_history: list, is_retry: bool 
         new_facts = new_mem.get("new_user_profile", "")
         if new_facts and str(new_facts).strip().lower() not in ["无", "none", "null", ""]:
             entry = f"\n\n【{get_now()}】\n{new_facts}"
-            await safe_text_append(inner_thoughts_path, entry)
+            await safe_text_append(user_portrait_path, entry)
 
         logger.info("[记忆引擎] 时间衰减机制刷新完毕，画像提取成功！")
         return True

@@ -70,14 +70,14 @@ AGENT_AVATAR_DIR = os.path.join(_DATA_DIR, "avatars", "agent")
 USER_AVATAR_DIR = os.path.join(_DATA_DIR, "avatars", "user")
 AGENT_PROFILE_DIR = os.path.join(_DATA_DIR, "agent_profile")
 USER_PROFILE_DIR = os.path.join(_DATA_DIR, "user_profile")
-INNER_THOUGHTS_DIR = os.path.join(_DATA_DIR, "inner_thoughts")
+USER_PORTRAIT_DIR = os.path.join(_DATA_DIR, "user_portrait")
 ARCHIVE_DIR = os.path.join(_DATA_DIR, "memory_archive")
 TEMP_IMG_DIR = os.path.join(_DATA_DIR, "temp_images")
 MEMORY_RETRY_DIR = os.path.join(_DATA_DIR, "memory_retry")
 
 # 确保所有目录存在
 for _d in [_DATA_DIR, MEM_DIR, CONFIG_DIR, AGENT_AVATAR_DIR, USER_AVATAR_DIR,
-           AGENT_PROFILE_DIR, USER_PROFILE_DIR, INNER_THOUGHTS_DIR,
+           AGENT_PROFILE_DIR, USER_PROFILE_DIR, USER_PORTRAIT_DIR,
            ARCHIVE_DIR, TEMP_IMG_DIR, MEMORY_RETRY_DIR]:
     os.makedirs(_d, exist_ok=True)
 

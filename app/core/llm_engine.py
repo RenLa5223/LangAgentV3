@@ -8,8 +8,8 @@ import urllib.error
 import os
 
 from app.core.config import (
-    state, MEM_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR,
-    INNER_THOUGHTS_DIR, _strip_think, get_now
+    state, MEM_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR, USER_PORTRAIT_DIR,
+    _strip_think, get_now
 )
 from app.utils.constants import _MODEL_ERR
 from app.utils.fs_lock import safe_json_read, atomic_json_write
