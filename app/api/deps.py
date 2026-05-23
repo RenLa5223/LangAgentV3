@@ -4,16 +4,17 @@ import os
 import hmac
 from fastapi import Header, HTTPException, Depends, Request
 from app.core.config import CONFIG_DIR, settings
+from app.core.constants import CONFIG_FILE, API_FORMAT_OPENAI
 from app.utils.fs_lock import safe_json_read, lock_registry
 from app.utils.logging import trace_id_ctx, logger
 
 
 async def get_config() -> dict:
     """获取当前配置（每次请求读取最新值）"""
-    config_path = os.path.join(CONFIG_DIR, "config.json")
+    config_path = os.path.join(CONFIG_DIR, CONFIG_FILE)
     cfg = {
         "url": "", "key": "", "model": "",
-        "ai_name": "", "user_name": "", "api_format": "openai"
+        "ai_name": "", "user_name": "", "api_format": API_FORMAT_OPENAI
     }
     loaded = await safe_json_read(config_path, {})
     cfg.update(loaded)

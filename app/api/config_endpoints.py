@@ -8,6 +8,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from app.core.config import CONFIG_DIR, DATA_DIR
+from app.core.constants import API_FORMAT_OPENAI, API_FORMAT_ANTHROPIC, MODEL_PROBE_TIMEOUT
 from app.api.deps import get_config, verify_session_dependency
 from app.services.config_service import read_data_file, save_data_file, reset_system
 from app.utils.logging import logger
@@ -25,7 +26,7 @@ class GetModelsRequest(BaseModel):
     url: str = ""
     key: str = ""
     model: str = ""
-    format: str = "openai"
+    format: str = API_FORMAT_OPENAI
 
 
 @router.get("/read/{folder}/{filename}")

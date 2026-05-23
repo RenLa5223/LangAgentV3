@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from app.core.config import (
     AGENT_AVATAR_DIR, USER_AVATAR_DIR, TEMP_IMG_DIR
 )
+from app.core.constants import MAX_AVATAR_SIZE, AVATAR_FILE
 from app.utils.fs_lock import lock_registry
 
 router = APIRouter(prefix="/api", tags=["files"])
@@ -46,7 +47,7 @@ async def upload_avatar(req: dict):
     if role not in ['agent', 'user'] or not img_b64:
         raise HTTPException(status_code=400, detail="参数无效")
 
-    if len(img_b64) > 5 * 1024 * 1024:
+    if len(img_b64) > MAX_AVATAR_SIZE:
         raise HTTPException(status_code=413, detail="图片过大")
 
     if ',' in img_b64:
@@ -65,7 +66,7 @@ async def upload_avatar(req: dict):
                 os.remove(file_path)
 
         def _write():
-            with open(os.path.join(target_dir, "avatar.png"), "wb") as f:
+            with open(os.path.join(target_dir, AVATAR_FILE), "wb") as f:
                 f.write(img_data)
 
         await asyncio.to_thread(_write)

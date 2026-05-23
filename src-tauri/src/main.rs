@@ -1,6 +1,6 @@
 // ================================================================
-// LangAgent — Tauri Sidecar 进程管理器
-// 单实例 → Sidecar 生命周期 → 托盘常驻
+// LangAgentV3 — Tauri Sidecar 进程管理器
+// 动态端口分配 → 环境变量注入 → 托盘常驻 → IPC 暴露端口
 // ================================================================
 
 #![cfg_attr(
@@ -8,6 +8,7 @@
     windows_subsystem = "windows"
 )]
 
+use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{
@@ -16,7 +17,10 @@ use tauri::{
     SystemTrayMenu, SystemTrayMenuItem, GlobalShortcutManager,
 };
 
-/// ====== Rust IPC 指令：零拷贝硬件感知 ======
+/// ====== 动态端口管理状态 ======
+struct ServerPort(u16);
+
+/// ====== Rust IPC: 硬件感知 ======
 #[tauri::command]
 fn get_system_hardware_info() -> String {
     let cpu = std::thread::available_parallelism()
@@ -24,6 +28,11 @@ fn get_system_hardware_info() -> String {
     format!("OS: {} | CPU logical cores: {}", std::env::consts::OS, cpu)
 }
 
+/// ====== Rust IPC: 向前端暴露动态端口 ======
+#[tauri::command]
+fn get_server_port(state: tauri::State<'_, ServerPort>) -> u16 {
+    state.0
+}
 
 /// Python Sidecar 进程句柄
 struct SidecarState {
@@ -51,13 +60,33 @@ fn wait_for_port(host: &str, port: u16, timeout_secs: u64) -> bool {
 }
 
 // ============================================================================
-// 启动 Python Sidecar
+// 动态端口分配
 // ============================================================================
-fn start_sidecar(_app: &AppHandle) -> Result<tauri::api::process::CommandChild, String> {
+fn allocate_dynamic_port() -> Result<u16, String> {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .map_err(|e| format!("动态端口分配失败: {}", e))?;
+    let port = listener.local_addr()
+        .map_err(|e| format!("读取端口失败: {}", e))?
+        .port();
+    // 显式释放 listener，端口交给 Python sidecar 使用
+    drop(listener);
+    println!("[Tauri] 动态端口已分配: {}", port);
+    Ok(port)
+}
+
+// ============================================================================
+// 启动 Python Sidecar (注入动态端口)
+// ============================================================================
+fn start_sidecar(_app: &AppHandle, port: u16) -> Result<tauri::api::process::CommandChild, String> {
+    let mut envs = std::collections::HashMap::new();
+    envs.insert("LANGAGENT_PORT".to_string(), port.to_string());
     let (mut rx, child) = TauriCommand::new_sidecar("core-engine")
         .map_err(|e| format!("无法创建 sidecar 命令: {}", e))?
+        .envs(envs)
         .spawn()
         .map_err(|e| format!("无法启动 sidecar: {}", e))?;
+
+    println!("[Tauri] Sidecar 已启动, 端口 {} 已注入环境变量", port);
 
     tauri::async_runtime::spawn(async move {
         use tauri::api::process::CommandEvent;
@@ -118,7 +147,7 @@ fn main() {
             }
         }))
         // ----- 注册 Rust IPC 指令 -----
-        .invoke_handler(tauri::generate_handler![get_system_hardware_info])
+        .invoke_handler(tauri::generate_handler![get_system_hardware_info, get_server_port])
         // ----- 系统托盘 -----
         .system_tray(system_tray)
         .manage(SidecarState {
@@ -126,9 +155,16 @@ fn main() {
         })
         // ----- 启动阶段 -----
         .setup(move |app| {
-            println!("[Tauri] 正在启动 Sidecar 引擎...");
+            // 1. 动态分配端口
+            let port = allocate_dynamic_port()
+                .expect("动态端口分配失败，无法启动服务");
 
-            match start_sidecar(&app.handle()) {
+            // 2. 将端口注入 Tauri 状态供前端 IPC 查询
+            app.manage(ServerPort(port));
+
+            // 3. 启动 Sidecar 并注入端口环境变量
+            println!("[Tauri] 正在启动 Sidecar 引擎 (端口 {})...", port);
+            match start_sidecar(&app.handle(), port) {
                 Ok(child) => {
                     *sidecar_child_clone.lock().unwrap() = Some(child);
                     println!("[Tauri] Sidecar 引擎已启动");
@@ -138,12 +174,12 @@ fn main() {
                 }
             }
 
-            // 等待端口就绪后导航并显示窗口
-            let target_url = "http://127.0.0.1:5622";
-            println!("[Tauri] 等待引擎端口就绪 (127.0.0.1:5622)...");
+            // 4. 等待端口就绪后导航并显示窗口
+            let target_url = format!("http://127.0.0.1:{}", port);
+            println!("[Tauri] 等待引擎端口就绪 (127.0.0.1:{})...", port);
             let window = app.get_window("main").unwrap();
 
-            if wait_for_port("127.0.0.1", 5622, 15) {
+            if wait_for_port("127.0.0.1", port, 15) {
                 println!("[Tauri] 引擎端口已就绪");
                 let js = format!("window.location.replace('{}')", target_url);
                 let _ = window.eval(&js);
@@ -152,7 +188,7 @@ fn main() {
             }
             let _ = window.show();
 
-            // 注册全局快捷键 Alt+Space 切换窗口显隐
+            // 5. 注册全局快捷键 Alt+Space 切换窗口显隐
             let window_handle = app.get_window("main").unwrap();
             app.global_shortcut_manager()
                 .register("Alt+Space", move || {

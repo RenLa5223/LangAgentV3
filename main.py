@@ -37,7 +37,8 @@ def _check_single_instance(port: int) -> bool:
 
 
 def main():
-    port = 5622
+    from app.core.config import settings
+    port = settings.PORT
 
     # 单实例检查
     if not _check_single_instance(port):
@@ -46,14 +47,14 @@ def main():
 
     print("=" * 60)
     print(f"[START] LangAgentV3 Headless 后端启动中...")
-    print(f"[PORT] 监听端口: {port}")
+    print(f"[PORT] 监听端口: {port}  (来源: {'环境变量 LANGAGENT_PORT' if os.getenv('LANGAGENT_PORT') else '默认配置'})")
     print(f"[DOCS] API 文档: http://localhost:{port}/docs")
     print("=" * 60)
 
     import uvicorn
     uvicorn.run(
         "app.main:app",
-        host="localhost",
+        host=settings.HOST,
         port=port,
         log_level="info",
         log_config=None,

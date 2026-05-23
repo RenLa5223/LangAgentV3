@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import ChatView from './views/ChatView'
 import ManageView from './views/ManageView'
@@ -14,8 +14,18 @@ import { fetchHealth } from '@/api/request.js'
 
 export default function App() {
   const initialized = useRef(false)
+  const [portReady, setPortReady] = useState(false)
 
+  // ====== Phase 0: 动态端口初始化屏障 ======
   useEffect(() => {
+    useAppStore.getState().initServerPort().then(() => {
+      setPortReady(true)
+    })
+  }, [])
+
+  // ====== Phase 1: 业务初始化（端口就绪后执行） ======
+  useEffect(() => {
+    if (!portReady) return
     if (initialized.current) return
     initialized.current = true
 
@@ -49,7 +59,19 @@ export default function App() {
     }
 
     init()
-  }, [])
+  }, [portReady])
+
+  // ====== 加载屏障 ======
+  if (!portReady) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-[rgba(250,246,240,0.95)] backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <p className="text-text-sub text-sm font-bold">正在建立安全连接...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

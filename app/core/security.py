@@ -7,6 +7,7 @@ import hmac
 import time
 import secrets
 from app.core.config import CONFIG_DIR
+from app.core.constants import SERVER_SECRET_FILE, RESET_TOKEN_WINDOW
 from app.utils.fs_lock import safe_json_read, atomic_json_write
 from app.utils.logging import logger
 
@@ -34,7 +35,7 @@ async def get_or_create_server_secret() -> str:
     global _server_secret
     if _server_secret:
         return _server_secret
-    secret_file = os.path.join(CONFIG_DIR, ".server_secret")
+    secret_file = os.path.join(CONFIG_DIR, SERVER_SECRET_FILE)
     existing = await safe_json_read(secret_file, None)
     if existing and existing.get("secret"):
         _server_secret = existing["secret"]
@@ -59,7 +60,7 @@ def verify_session_token(token: str) -> bool:
 
 def generate_reset_token(server_secret: str) -> str:
     """基于时间的 HMAC 重置令牌（有效期 5 分钟）"""
-    window = int(time.time() // 300)
+    window = int(time.time() // RESET_TOKEN_WINDOW)
     msg = f"reset-{window}".encode('utf-8')
     key = server_secret.encode('utf-8')
     sig = hmac.new(key, msg, hashlib.sha256).hexdigest()[:16]
@@ -70,7 +71,7 @@ def verify_reset_token(token: str, server_secret: str) -> bool:
     if not token:
         return False
     expected = generate_reset_token(server_secret)
-    prev_window = int(time.time() // 300) - 1
+    prev_window = int(time.time() // RESET_TOKEN_WINDOW) - 1
     key = server_secret.encode('utf-8')
     prev_msg = f"reset-{prev_window}".encode('utf-8')
     prev_sig = hmac.new(key, prev_msg, hashlib.sha256).hexdigest()[:16]

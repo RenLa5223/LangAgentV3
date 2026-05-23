@@ -11,6 +11,14 @@ from app.core.config import (
     state, MEM_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR,
     USER_PORTRAIT_DIR, MEMORY_RETRY_DIR, get_decay_score, get_now
 )
+from app.core.constants import (
+    CHAT_HISTORY_FILE, MEMORY_SUMMARY_FILE, USER_PORTRAIT_FILE, AGENT_PROFILE_FILE,
+    CHAT_SUMMARY_TRIGGER, CHAT_SUMMARY_SLICE, USER_PORTRAIT_CONTEXT_CHARS,
+    MEMORY_DECAY_EVICT, MEMORY_REINFORCE_MIN_LEN,
+    DEAD_LETTER_RETRY_INTERVAL, DEAD_LETTER_MAX_RETRIES,
+    MEMORY_DECAY_INTERVAL, PROACTIVE_CHECK_INTERVAL,
+    EMPTY_PROFILE_THRESHOLD, EMPTY_VALUE_MARKERS,
+)
 from app.utils.fs_lock import safe_json_read, atomic_json_write, safe_text_read, safe_text_write, safe_text_append
 from app.core.llm_engine import call_llm_with_circuit_breaker
 from app.utils.logging import logger
@@ -73,7 +81,7 @@ async def auto_summarize_memory(cfg: dict, recent_history: list, is_retry: bool 
             logger.error(f"[Memory Engine] RAG 归档异常: {e}")
 
     try:
-        user_portrait_path = os.path.join(USER_PORTRAIT_DIR, "user_portrait.txt")
+        user_portrait_path = os.path.join(USER_PORTRAIT_DIR, USER_PORTRAIT_FILE)
         current_user_portrait = await safe_text_read(user_portrait_path)
 
         ai_name = cfg.get("ai_name", "AI")
@@ -92,7 +100,7 @@ async def auto_summarize_memory(cfg: dict, recent_history: list, is_retry: bool 
 
 # 已有情报参考（避免重复）
 <existing_profile>
-{current_user_portrait[-800:]}
+{current_user_portrait[-USER_PORTRAIT_CONTEXT_CHARS:]}
 </existing_profile>
 
 # 输出格式
@@ -139,13 +147,13 @@ async def auto_summarize_memory(cfg: dict, recent_history: list, is_retry: bool 
             new_mem["new_user_profile"] = _sanitize_text(new_mem["new_user_profile"])
 
         # 写入长期记忆
-        summary_file = os.path.join(MEM_DIR, "memory_summary.json")
+        summary_file = os.path.join(MEM_DIR, MEMORY_SUMMARY_FILE)
         mem_data = await safe_json_read(summary_file, {"items": []})
         reinforced = False
         reinforce_kw = str(new_mem.get("reinforce", "")).strip()
         reinforce_kw = _sanitize_text(reinforce_kw)
 
-        if len(reinforce_kw) >= 3 and reinforce_kw.lower() not in ("无", "none", "null", ""):
+        if len(reinforce_kw) >= MEMORY_REINFORCE_MIN_LEN and reinforce_kw.lower() not in EMPTY_VALUE_MARKERS:
             items = mem_data.get("items", [])
             for old in items:
                 old_content = old.get("content", "")
@@ -164,7 +172,7 @@ async def auto_summarize_memory(cfg: dict, recent_history: list, is_retry: bool 
 
         # 写入用户画像
         new_facts = new_mem.get("new_user_profile", "")
-        if new_facts and str(new_facts).strip().lower() not in ["无", "none", "null", ""]:
+        if new_facts and str(new_facts).strip().lower() not in EMPTY_VALUE_MARKERS:
             entry = f"\n\n【{get_now()}】\n{new_facts}"
             await safe_text_append(user_portrait_path, entry)
 
@@ -196,7 +204,7 @@ async def _enqueue_retry(cfg: dict, recent_history: list):
 async def _memory_retry_worker():
     """后台：定期扫描死信队列，系统上线后重试失败的摘要任务"""
     while True:
-        await asyncio.sleep(120)
+        await asyncio.sleep(DEAD_LETTER_RETRY_INTERVAL)
         try:
             conn_status = await state.conn_status
             if conn_status != "online":
@@ -236,7 +244,7 @@ async def _memory_retry_worker():
                 except Exception:
                     pass
                 logger.info(f"[死信队列] 重试成功，已清理: {fname}")
-            elif attempts >= 5:
+            elif attempts >= DEAD_LETTER_MAX_RETRIES:
                 try:
                     os.remove(fpath)
                 except Exception:
@@ -253,15 +261,15 @@ async def _memory_retry_worker():
 async def _memory_decay_cleaner():
     """后台：每30分钟对所有长期记忆做一次衰减评分，剔除已归零的记忆"""
     while True:
-        await asyncio.sleep(1800)
+        await asyncio.sleep(MEMORY_DECAY_INTERVAL)
         try:
-            summary_file = os.path.join(MEM_DIR, "memory_summary.json")
+            summary_file = os.path.join(MEM_DIR, MEMORY_SUMMARY_FILE)
             mem_data = await safe_json_read(summary_file, {"items": []})
             items = mem_data.get('items', [])
             if not items:
                 continue
             before = len(items)
-            items = [m for m in items if get_decay_score(m) >= 0.3]
+            items = [m for m in items if get_decay_score(m) >= MEMORY_DECAY_EVICT]
             if len(items) < before:
                 mem_data['items'] = items
                 await atomic_json_write(summary_file, mem_data)
@@ -273,7 +281,7 @@ async def _memory_decay_cleaner():
 async def _proactive_worker():
     """后台：空闲时主动发消息关怀用户"""
     while True:
-        await asyncio.sleep(60)
+        await asyncio.sleep(PROACTIVE_CHECK_INTERVAL)
         try:
             cfg_path = os.path.join(CONFIG_DIR, "config.json")
             cfg = await safe_json_read(cfg_path, {})
@@ -300,7 +308,7 @@ async def _proactive_worker():
 
             ai_name = cfg.get("ai_name", "AI")
             user_name = cfg.get("user_name", "用户")
-            history_file = os.path.join(MEM_DIR, "chat_history.json")
+            history_file = os.path.join(MEM_DIR, CHAT_HISTORY_FILE)
 
             history = await safe_json_read(history_file, [])
             recent = history[-6:]
@@ -314,13 +322,13 @@ async def _proactive_worker():
                 context_str = "\n".join(lines)
 
             profile_text = ""
-            profile_path = os.path.join(AGENT_PROFILE_DIR, "agent_profile.txt")
+            profile_path = os.path.join(AGENT_PROFILE_DIR, AGENT_PROFILE_FILE)
             if os.path.exists(profile_path):
                 profile_text = (await safe_text_read(profile_path)).strip()
 
             # 读取最新一条长期记忆
             latest_memory = ""
-            summary_file = os.path.join(MEM_DIR, "memory_summary.json")
+            summary_file = os.path.join(MEM_DIR, MEMORY_SUMMARY_FILE)
             mem_data = await safe_json_read(summary_file, {"items": []})
             items = mem_data.get("items", [])
             if items:
@@ -329,7 +337,7 @@ async def _proactive_worker():
 
             # 保底机制：无记忆内容 且 档案不足 20 字时触发
             fallback_hint = ""
-            if not latest_memory and len(profile_text) < 20:
+            if not latest_memory and len(profile_text) < EMPTY_PROFILE_THRESHOLD:
                 fallback_hint = "\n当前系统内容较为精简，用户可能尚在测试或尚未完善配置。请以自然随和的方式简单开启对话，无需过度依赖背景设定。"
             elif latest_memory:
                 latest_memory = f"\n【近期关键记忆】\n{latest_memory}"
@@ -363,9 +371,9 @@ async def _proactive_worker():
 
                 start_summary = False
                 to_summarize = []
-                if len(history) >= 22:
-                    to_summarize = history[:20]
-                    history = history[20:]
+                if len(history) >= CHAT_SUMMARY_TRIGGER:
+                    to_summarize = history[:CHAT_SUMMARY_SLICE]
+                    history = history[CHAT_SUMMARY_SLICE:]
                     start_summary = True
 
                 await atomic_json_write(history_file, history)

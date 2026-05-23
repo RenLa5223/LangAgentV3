@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """RAG 索引异步队列服务 —— 单线程消费者消灭竞态条件"""
 import asyncio
+from app.core.constants import RAG_SHUTDOWN_TIMEOUT
 from app.utils.logging import logger
 
 # 全局队列：任何需要重建 RAG 索引的操作只需往里放入信号
@@ -57,6 +58,6 @@ async def shutdown_rag_worker():
     _rag_worker_ready = False
     # 等待队列中剩余的任务完成
     try:
-        await asyncio.wait_for(_rag_task_queue.join(), timeout=10.0)
+        await asyncio.wait_for(_rag_task_queue.join(), timeout=RAG_SHUTDOWN_TIMEOUT)
     except asyncio.TimeoutError:
         logger.warning("[RAG Worker] 超时等待队列清空，强制退出")

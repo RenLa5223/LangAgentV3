@@ -8,10 +8,16 @@ import time
 import uuid
 import re as _rag_skip_re
 from app.core.config import ARCHIVE_DIR
+from app.core.constants import (
+    ARCHIVE_DB_FILE as _ARCHIVE_DB_FILENAME,
+    INVERTED_INDEX_FILE as _INVERTED_INDEX_FILENAME,
+    RAG_SEARCH_TOP_K, RAG_SEARCH_THRESHOLD,
+    BM25_K1, BM25_B, BM25_IDF_FLOOR,
+)
 from app.utils.fs_lock import safe_json_read, atomic_json_write
 
-ARCHIVE_DB_FILE = os.path.join(ARCHIVE_DIR, "archive_db.json")
-INDEX_FILE = os.path.join(ARCHIVE_DIR, "inverted_index.json")
+ARCHIVE_DB_FILE = os.path.join(ARCHIVE_DIR, _ARCHIVE_DB_FILENAME)
+INDEX_FILE = os.path.join(ARCHIVE_DIR, _INVERTED_INDEX_FILENAME)
 
 os.makedirs(ARCHIVE_DIR, exist_ok=True)
 
@@ -70,7 +76,7 @@ async def add_to_archive(messages: list):
     await atomic_json_write(INDEX_FILE, idx)
 
 
-async def search(query: str, top_k: int = 2, threshold: float = 1.5) -> list:
+async def search(query: str, top_k: int = RAG_SEARCH_TOP_K, threshold: float = RAG_SEARCH_THRESHOLD) -> list:
     """BM25 检索历史记忆区块"""
     if not query:
         return []
@@ -82,7 +88,7 @@ async def search(query: str, top_k: int = 2, threshold: float = 1.5) -> list:
 
     q_tf = _tokenize_tf(query)
     scores = {}
-    k1, b, N, avg_dl = 1.5, 0.75, idx["N"], idx["avg_dl"]
+    k1, b, N, avg_dl = BM25_K1, BM25_B, idx["N"], idx["avg_dl"]
 
     for term in q_tf.keys():
         if term not in idx["inv"]:

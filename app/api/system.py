@@ -5,6 +5,7 @@ import platform
 import subprocess
 from fastapi import APIRouter
 from app.core.config import settings, state, DATA_DIR
+from app.core.constants import CONFIG_FILE
 from app.utils.logging import logger, get_log_stream
 router = APIRouter(prefix="/api", tags=["system"])
 
@@ -17,7 +18,7 @@ async def health_check():
         "core_server": "online",
         "config_fs": "offline"
     }
-    config_path = os.path.join(DATA_DIR, "config", "config.json")
+    config_path = os.path.join(DATA_DIR, "config", CONFIG_FILE)
     if os.path.exists(config_path):
         health_data["config_fs"] = "online"
 

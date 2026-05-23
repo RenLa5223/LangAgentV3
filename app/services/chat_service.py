@@ -8,6 +8,7 @@ import base64
 import time
 
 from app.core.config import MEM_DIR, TEMP_IMG_DIR, get_now
+from app.core.constants import CHAT_HISTORY_FILE, CHAT_SUMMARY_TRIGGER, CHAT_SUMMARY_SLICE
 from app.core.llm_engine import (
     call_llm_with_circuit_breaker,
     build_chat_context,
@@ -33,9 +34,9 @@ async def process_ai_response(cfg: dict, ai_reply: str, user_texts: list, histor
     for p in parts:
         safe_chat.append({"role": "agent", "content": p, "time": get_now()})
 
-    if len(safe_chat) >= 22:
-        to_summarize = safe_chat[:20]
-        safe_chat = safe_chat[20:]
+    if len(safe_chat) >= CHAT_SUMMARY_TRIGGER:
+        to_summarize = safe_chat[:CHAT_SUMMARY_SLICE]
+        safe_chat = safe_chat[CHAT_SUMMARY_SLICE:]
         start_summary = True
     await atomic_json_write(history_file, safe_chat)
 

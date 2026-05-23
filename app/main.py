@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.core.config import settings, _DATA_DIR, MEM_DIR, CONFIG_DIR
+from app.core.constants import CHAT_HISTORY_FILE, MEMORY_SUMMARY_FILE
 from app.utils.logging import init_logger, logger, trace_id_ctx
 from app.api.router import api_router
 from app.utils.fs_lock import atomic_json_write
@@ -46,10 +47,10 @@ async def lifespan(app: FastAPI):
     app.state.session_token = SESSION_TOKEN
 
     # 2. 初始化必要数据文件
-    if not os.path.exists(os.path.join(MEM_DIR, "chat_history.json")):
-        await atomic_json_write(os.path.join(MEM_DIR, "chat_history.json"), [])
-    if not os.path.exists(os.path.join(MEM_DIR, "memory_summary.json")):
-        await atomic_json_write(os.path.join(MEM_DIR, "memory_summary.json"), {"items": []})
+    if not os.path.exists(os.path.join(MEM_DIR, CHAT_HISTORY_FILE)):
+        await atomic_json_write(os.path.join(MEM_DIR, CHAT_HISTORY_FILE), [])
+    if not os.path.exists(os.path.join(MEM_DIR, MEMORY_SUMMARY_FILE)):
+        await atomic_json_write(os.path.join(MEM_DIR, MEMORY_SUMMARY_FILE), {"items": []})
 
     # 3. 启动记忆引擎后台守护 (memory_engine 内部 asyncio.create_task)
     from app.core.memory_engine import start_background_tasks

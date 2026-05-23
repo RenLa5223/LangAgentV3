@@ -63,14 +63,11 @@ def main():
     sep = ";" if sys.platform == "win32" else ":"
     templates_abs = os.path.join(root, "templates")
     static_abs = os.path.join(root, "static")
-    data_abs = os.path.join(root, "Data")
 
     add_data_args = [
         "--add-data", f"{templates_abs}{sep}templates",
         "--add-data", f"{static_abs}{sep}static",
     ]
-    if os.path.exists(data_abs):
-        add_data_args.extend(["--add-data", f"{data_abs}{sep}Data"])
 
     # 隐藏导入（PyInstaller 自动检测不到的动态导入模块）
     hidden_imports = [

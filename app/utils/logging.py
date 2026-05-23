@@ -4,6 +4,7 @@ import sys
 import os
 from contextvars import ContextVar
 from loguru import logger
+from app.core.constants import LOG_STREAM_TAIL
 
 trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="SYS_BOOT")
 _log_dir: str = ""
@@ -69,6 +70,6 @@ def get_log_stream() -> str:
     try:
         with open(log_file, "r", encoding="utf-8") as f:
             content = f.read()
-        return content[-20000:] if len(content) > 20000 else content
+        return content[-LOG_STREAM_TAIL:] if len(content) > LOG_STREAM_TAIL else content
     except Exception:
         return ""
