@@ -71,9 +71,20 @@ class TestChatEndpoints(unittest.TestCase):
 
     @patch('app.services.chat_service.call_llm_with_circuit_breaker')
     def test_chat_without_message(self, mock_llm):
-        mock_llm.return_value = '测试回复'
-        resp = client.post('/api/chat', json={"message": "", "image": None})
-        self.assertIn(resp.status_code, [200, 500])
+        # Save and restore chat history to prevent test pollution
+        history_path = os.path.join(os.path.dirname(__file__), '..', 'Data', 'memory_core', 'chat_history.json')
+        backup = None
+        if os.path.exists(history_path):
+            with open(history_path, 'r', encoding='utf-8') as f:
+                backup = f.read()
+        try:
+            mock_llm.return_value = '测试回复'
+            resp = client.post('/api/chat', json={"message": "", "image": None})
+            self.assertIn(resp.status_code, [200, 500])
+        finally:
+            if backup is not None:
+                with open(history_path, 'w', encoding='utf-8') as f:
+                    f.write(backup)
 
     def test_signature_no_config(self):
         resp = client.get('/api/signature')

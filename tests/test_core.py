@@ -311,10 +311,13 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
                 'app.core.memory_engine.USER_PORTRAIT_DIR', tmp_data
             ), patch(
                 'app.core.memory_engine.call_llm_with_circuit_breaker'
-            ) as mock_llm:
+            ) as mock_llm, patch(
+                'app.core.rag_engine.add_to_archive'
+            ) as mock_archive:
                 mock_llm.return_value = mock_reply
                 result = await auto_summarize_memory(cfg, history)
                 self.assertTrue(result)
+                mock_archive.assert_called_once()
                 # 验证长期记忆已写入
                 self.assertTrue(os.path.exists(summary_file))
                 import json
@@ -337,7 +340,8 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
                 'MEM_DIR', tmp_data
             ), patch('app.core.memory_engine.USER_PORTRAIT_DIR', tmp_data), \
               patch('app.core.memory_engine.MEMORY_RETRY_DIR', tmp_data), \
-              patch('app.core.memory_engine.call_llm_with_circuit_breaker') as mock_llm:
+              patch('app.core.memory_engine.call_llm_with_circuit_breaker') as mock_llm, \
+              patch('app.core.rag_engine.add_to_archive') as mock_archive:
                 mock_llm.return_value = None
                 result = await auto_summarize_memory(cfg, history)
                 self.assertFalse(result)
@@ -364,7 +368,8 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
                 __import__('app.core.memory_engine', fromlist=['MEM_DIR']),
                 'MEM_DIR', tmp_data
             ), patch('app.core.memory_engine.USER_PORTRAIT_DIR', tmp_data), \
-              patch('app.core.memory_engine.call_llm_with_circuit_breaker') as mock_llm:
+              patch('app.core.memory_engine.call_llm_with_circuit_breaker') as mock_llm, \
+              patch('app.core.rag_engine.add_to_archive') as mock_archive:
                 mock_llm.return_value = mock_reply
                 await auto_summarize_memory(cfg, history)
                 self.assertTrue(os.path.exists(inner_path))
