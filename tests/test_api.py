@@ -64,7 +64,9 @@ class TestChatEndpoints(unittest.TestCase):
         self.assertIn('new_messages', data)
         self.assertIsInstance(data['new_messages'], list)
 
-    def test_chat_without_message(self):
+    @patch('app.services.chat_service.call_llm_with_circuit_breaker')
+    def test_chat_without_message(self, mock_llm):
+        mock_llm.return_value = '测试回复'
         resp = client.post('/api/chat', json={"message": "", "image": None})
         self.assertIn(resp.status_code, [200, 500])
 
