@@ -61,12 +61,11 @@ async def save_file(req: SaveRequest):
 
 
 @router.post("/reset")
-async def reset_system_endpoint(req: dict):
-    """系统全量重置"""
-    from app.core.config import CONFIG_DIR
-    logger.warning(f"[RESET] 即将删除配置目录: {CONFIG_DIR}")
+async def reset_system_endpoint(req: dict, _token: str = Depends(verify_session_dependency)):
+    """系统全量重置（需 X-API-Token + 前端确认输入双保障）"""
+    logger.warning(f"[RESET] 即将执行系统全量重置")
     await reset_system()
-    logger.warning(f"[RESET] 重置完成, config已删除: {not os.path.exists(os.path.join(CONFIG_DIR, 'config.json'))}")
+    logger.warning(f"[RESET] 重置完成")
     return {"status": "reset_success"}
 
 

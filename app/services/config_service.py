@@ -2,8 +2,15 @@
 """配置读写业务服务层"""
 import os
 import json
-from app.core.config import DATA_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR, USER_PORTRAIT_DIR, MEM_DIR
-from app.core.config import AGENT_AVATAR_DIR, USER_AVATAR_DIR
+from app.core.config import (
+    DATA_DIR, CONFIG_DIR, AGENT_PROFILE_DIR, USER_PROFILE_DIR,
+    USER_PORTRAIT_DIR, MEM_DIR, AGENT_AVATAR_DIR, USER_AVATAR_DIR,
+    ARCHIVE_DIR, MEMORY_RETRY_DIR, TEMP_IMG_DIR,
+)
+from app.core.constants import (
+    CONFIG_FILE, AGENT_PROFILE_FILE, USER_PROFILE_FILE, USER_PORTRAIT_FILE,
+    CHAT_HISTORY_FILE, MEMORY_SUMMARY_FILE, DAILY_SIGNATURE_FILE,
+)
 from app.utils.fs_lock import safe_json_read, atomic_json_write, safe_text_read, safe_text_write
 from app.utils.constants import ALLOWED_FOLDERS as AF
 from app.utils.logging import logger
@@ -58,25 +65,48 @@ async def save_data_file(folder: str, filename: str, content: str):
 
 async def reset_system():
     """系统全量重置"""
-    cfg_path = os.path.join(CONFIG_DIR, "config.json")
+    cfg_path = os.path.join(CONFIG_DIR, CONFIG_FILE)
     if os.path.exists(cfg_path):
         os.remove(cfg_path)
 
+    # 人物档案 / 用户画像
     for p in [
-        os.path.join(AGENT_PROFILE_DIR, "agent_profile.txt"),
-        os.path.join(USER_PROFILE_DIR, "user_profile.txt"),
-        os.path.join(USER_PORTRAIT_DIR, "user_portrait.txt"),
+        os.path.join(AGENT_PROFILE_DIR, AGENT_PROFILE_FILE),
+        os.path.join(USER_PROFILE_DIR, USER_PROFILE_FILE),
+        os.path.join(USER_PORTRAIT_DIR, USER_PORTRAIT_FILE),
     ]:
         if os.path.exists(p):
             os.remove(p)
 
-    await atomic_json_write(os.path.join(MEM_DIR, "chat_history.json"), [])
-    await atomic_json_write(os.path.join(MEM_DIR, "memory_summary.json"), {"items": []})
+    # 短期记忆
+    await atomic_json_write(os.path.join(MEM_DIR, CHAT_HISTORY_FILE), [])
+    await atomic_json_write(os.path.join(MEM_DIR, MEMORY_SUMMARY_FILE), {"items": []})
 
-    sig_file = os.path.join(MEM_DIR, "daily_signature.json")
+    # 签名
+    sig_file = os.path.join(MEM_DIR, DAILY_SIGNATURE_FILE)
     if os.path.exists(sig_file):
         os.remove(sig_file)
 
+    # RAG 归档
+    archive_db = os.path.join(ARCHIVE_DIR, "archive_db.json")
+    inverted_idx = os.path.join(ARCHIVE_DIR, "inverted_index.json")
+    for f in [archive_db, inverted_idx]:
+        if os.path.exists(f):
+            os.remove(f)
+
+    # 死信重试队列
+    for fname in os.listdir(MEMORY_RETRY_DIR):
+        fp = os.path.join(MEMORY_RETRY_DIR, fname)
+        if os.path.isfile(fp):
+            os.remove(fp)
+
+    # 临时图片
+    for fname in os.listdir(TEMP_IMG_DIR):
+        fp = os.path.join(TEMP_IMG_DIR, fname)
+        if os.path.isfile(fp):
+            os.remove(fp)
+
+    # 头像
     for d in [AGENT_AVATAR_DIR, USER_AVATAR_DIR]:
         for filename in os.listdir(d):
             file_path = os.path.join(d, filename)
