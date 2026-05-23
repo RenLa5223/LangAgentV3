@@ -130,39 +130,52 @@ LangAgentV3/
 - Node.js 18+
 - Rust 1.70+ (仅 Tauri 桌面模式需要)
 
-### 安装依赖
+### 克隆后开始
 
 ```bash
-# Python 后端
-pip install -r requirements.txt
+git clone https://github.com/RenLa5223/LangAgentV3.git
+cd LangAgentV3
 
-# 前端
+# 安装依赖
+pip install -r requirements.txt
 npm install
 ```
+
+仓库不包含以下内容（`.gitignore` 排除），需按对应步骤生成：
+
+| 缺失内容 | 说明 | 恢复方式 |
+|---|---|---|
+| `node_modules/` | 前端依赖包 | `npm install` |
+| `templates/` `static/` | 构建后的前端静态文件 | `npm run build`（Tauri 模式必需，纯开发模式可跳过） |
+| `Data/` | 运行时数据（配置、记忆、头像） | 首次启动时自动创建，**模型 API 配置需手动填写** |
+| `dist/` `build/` `target/` | 构建产物 | 分别在 `npm run build` / `cargo tauri build` 时生成 |
 
 ### 开发模式 (浏览器)
 
 ```bash
-# 终端 1：启动后端
+# 终端 1：启动后端 (端口 5622)
 python main.py
 
-# 终端 2：启动前端
+# 终端 2：启动前端 (端口 5173)
 npm run dev
 ```
 
-浏览器访问 `http://localhost:5173` 即可使用。Vite 自动代理 `/api` 到后端 `http://127.0.0.1:5622`。
+浏览器访问 `http://localhost:5173`。Vite 自动代理 `/api` 到后端。
 
 ### Tauri 桌面模式
 
 ```bash
-cargo tauri dev          # 开发构建
-cargo tauri build        # 生产打包
+# 首次使用需先生成前端静态文件
+npm run build
+
+# 开发模式
+cargo tauri dev
+
+# 生产打包（生成 .msi / .exe）
+cargo tauri build
 ```
 
-生产打包流程：
-1. `npm run build` 编译前端并自动复制到 `templates/` 和 `static/`
-2. `python scripts/build_engine.py` 用 PyInstaller 将后端打包为 `core-engine.exe`
-3. `cargo tauri build` 将壳 + 前端 + 后端 Sidecar 打包为 `.msi` / `.exe`
+生产打包完整流程：`npm run build` → `python scripts/build_engine.py` → `cargo tauri build`
 
 ## API 端点
 
