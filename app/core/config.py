@@ -13,7 +13,7 @@ from pydantic import Field
 def _resolve_version() -> str:
     """
     从 tauri.conf.json 读取版本号（单一事实来源）。
-    打包后找不到该文件时回退到 "1.0.0"。
+    打包后找不到该文件时回退到 "1.0.2"。
     """
     # 寻找项目根目录（从 app/core/config.py → app/core → app → project root）
     candidates = []
@@ -30,11 +30,11 @@ def _resolve_version() -> str:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            version = data.get("package", {}).get("version", "1.0.0")
+            version = data.get("package", {}).get("version", "1.0.2")
             return version
         except Exception:
             continue
-    return "1.0.0"
+    return "1.0.2"
 
 
 # ============================================================================
