@@ -1,0 +1,30 @@
+[package]
+name = "langagent-v3"
+version = "1.0.0"
+description = "本地运行的 Agent"
+authors = ["LangAgent"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.70"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.7", features = [
+    "shell-open",
+    "shell-sidecar",
+    "system-tray",
+    "window-all",
+    "global-shortcut-all",
+    "process-all",
+    "notification-all",
+    "os-all",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

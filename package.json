@@ -1,0 +1,35 @@
+{
+  "name": "LangAgentV3",
+  "version": "1.0.0",
+  "description": "本地运行的 Agent",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node -e \"const{cpSync,rmSync,existsSync,mkdirSync}=require('fs');const{cwd}=require('process');const p=cwd();['templates','static'].forEach(d=>{if(existsSync(p+'/'+d))rmSync(p+'/'+d,{recursive:true})});[['dist/index.html','templates/index.html'],['dist/assets','static/assets']].forEach(([s,d])=>{const dp=require('path').dirname(d);if(!existsSync(dp))mkdirSync(dp,{recursive:true});cpSync(s,d,{recursive:true})})\"",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RenLa5223/LangAgentV3.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/RenLa5223/LangAgentV3/issues"
+  },
+  "homepage": "https://github.com/RenLa5223/LangAgentV3#readme",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
+    "vite": "^8.0.14"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.15.1",
+    "zustand": "^5.0.13"
+  }
+}

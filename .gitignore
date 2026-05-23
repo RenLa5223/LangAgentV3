@@ -1,0 +1,32 @@
+# Build artifacts
+build/
+dist/
+target/
+node_modules/
+__pycache__/
+*.pyc
+*.spec
+templates/
+static/
+
+# Binaries
+*.exe
+src-tauri/bin/
+
+# User data (may contain API keys)
+Data/
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
