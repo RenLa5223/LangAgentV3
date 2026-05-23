@@ -141,12 +141,20 @@ class TestSecurity(unittest.TestCase):
         self.assertEqual(len(t1), 43)
 
     def test_reset_token_roundtrip(self):
-        from app.core.security import get_or_create_server_secret, generate_reset_token, verify_reset_token
+        from unittest.mock import patch
+        from app.core.security import generate_reset_token, verify_reset_token
         async def _run():
-            secret = await get_or_create_server_secret()
-            token = generate_reset_token(secret)
-            self.assertTrue(verify_reset_token(token, secret))
-            self.assertFalse(verify_reset_token("wrong", secret))
+            with tempfile.TemporaryDirectory() as tmp:
+                secret_file = os.path.join(tmp, ".server_secret")
+                with patch('app.core.security.CONFIG_DIR', tmp):
+                    from app.core.security import get_or_create_server_secret
+                    # reset cached secret
+                    import app.core.security as sec
+                    sec._server_secret = ""
+                    secret = await get_or_create_server_secret()
+                    token = generate_reset_token(secret)
+                    self.assertTrue(verify_reset_token(token, secret))
+                    self.assertFalse(verify_reset_token("wrong", secret))
         asyncio.run(_run())
 
 
@@ -210,20 +218,19 @@ class TestRAGEngine(unittest.TestCase):
 
     def test_bm25_search_basic(self):
         import asyncio
+        from unittest.mock import patch
         async def _run():
-            from app.core.rag_engine import add_to_archive, search, ARCHIVE_DB_FILE, INDEX_FILE
-            # 清理测试数据
-            for f in [ARCHIVE_DB_FILE, INDEX_FILE]:
-                if os.path.exists(f):
-                    os.unlink(f)
-            msgs = [{"role": "user", "content": "今天天气不错", "time": "2025-01-01 12:00:00"}]
-            await add_to_archive(msgs)
-            results = await search("天气", top_k=5, threshold=0)
-            self.assertGreaterEqual(len(results), 1)
-            self.assertIn("天气", results[0]["content"])
-            for f in [ARCHIVE_DB_FILE, INDEX_FILE]:
-                if os.path.exists(f):
-                    os.unlink(f)
+            with tempfile.TemporaryDirectory() as tmp:
+                db_file = os.path.join(tmp, "archive_db.json")
+                idx_file = os.path.join(tmp, "inverted_index.json")
+                with patch('app.core.rag_engine.ARCHIVE_DB_FILE', db_file), \
+                     patch('app.core.rag_engine.INDEX_FILE', idx_file):
+                    from app.core.rag_engine import add_to_archive, search
+                    msgs = [{"role": "user", "content": "今天天气不错", "time": "2025-01-01 12:00:00"}]
+                    await add_to_archive(msgs)
+                    results = await search("天气", top_k=5, threshold=0)
+                    self.assertGreaterEqual(len(results), 1)
+                    self.assertIn("天气", results[0]["content"])
         asyncio.run(_run())
 
     def test_empty_search(self):

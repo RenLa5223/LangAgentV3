@@ -41,11 +41,16 @@ class TestDataReadWrite(unittest.TestCase):
         self.assertIn(resp.status_code, [200, 404])
 
     def test_save_and_read(self):
+        # Write to a dedicated test file to avoid polluting real config
         resp = client.post('/api/save', json={
-            'folder': 'config', 'filename': 'config.json',
+            'folder': 'config', 'filename': '_test_config.json',
             'content': '{"test_field": true}'
         })
         self.assertEqual(resp.status_code, 200)
+        # Clean up
+        test_path = os.path.join(os.path.dirname(__file__), '..', 'Data', 'config', '_test_config.json')
+        if os.path.exists(test_path):
+            os.remove(test_path)
 
     def test_read_nonexistent_file(self):
         resp = client.get('/api/read/config/no_such_file.json')
@@ -116,9 +121,10 @@ class TestLogsEndpoints(unittest.TestCase):
         resp = client.get('/api/logs/stream')
         self.assertEqual(resp.status_code, 200)
 
-    def test_logs_open_folder(self):
+    @patch('subprocess.Popen')
+    def test_logs_open_folder(self, mock_popen):
         resp = client.get('/api/logs/open_folder')
-        self.assertIn(resp.status_code, [200, 500])
+        self.assertEqual(resp.status_code, 200)
 
 
 class TestModelProbe(unittest.TestCase):
