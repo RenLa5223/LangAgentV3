@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     @property
     def DATA_DIR(self) -> str:
         if getattr(sys, 'frozen', False):
+            appdata = os.getenv("APPDATA")
+            if appdata:
+                return os.path.join(appdata, "LangAgentV3", "Data")
             return os.path.join(os.path.dirname(sys.executable), "Data")
         return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "Data")
 
@@ -60,7 +63,11 @@ settings = Settings()
 # 路径常量（兼容 PyInstaller 冻结模式）
 # ============================================================================
 if getattr(sys, 'frozen', False):
-    _DATA_DIR = os.path.join(os.path.dirname(sys.executable), "Data")
+    _appdata = os.getenv("APPDATA")
+    if _appdata:
+        _DATA_DIR = os.path.join(_appdata, "LangAgentV3", "Data")
+    else:
+        _DATA_DIR = os.path.join(os.path.dirname(sys.executable), "Data")
 else:
     _DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "Data"))
 DATA_DIR = _DATA_DIR  # 公开别名，供外部模块导入
