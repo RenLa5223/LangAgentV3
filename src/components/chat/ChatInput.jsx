@@ -36,6 +36,7 @@ export default function ChatInput() {
       textareaRef.current.style.height = '24px'
     }
     await sendMessage(trimmed, imageBase64)
+    setTimeout(() => textareaRef.current?.focus(), 0)
   }, [text, imageBase64, isTyping, sendMessage])
 
   const handleKeyDown = useCallback(

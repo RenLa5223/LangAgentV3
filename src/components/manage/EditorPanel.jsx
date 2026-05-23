@@ -637,12 +637,6 @@ function MemoryArchiveEditor({ saveHandlerRef }) {
           <div className="text-text-sub text-4xl">📭</div>
           <p className="text-text-sub text-sm m-0">暂无已归档的深度记忆</p>
           <p className="text-text-sub text-xs opacity-60 m-0">当对话达到一定轮次时，系统将自动触发 RAG 归档引擎。</p>
-          <button onClick={loadArchive}
-            className="bg-primary text-white px-6 py-2.5 rounded-2xl font-bold text-sm cursor-pointer border-none
-                       shadow-[0_10px_20px_rgba(212,163,115,0.3)] hover:bg-primary-dark hover:-translate-y-0.5
-                       active:translate-y-px transition-all duration-300">
-            重新拉取归档索引
-          </button>
         </div>
       ) : items.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-sub">
