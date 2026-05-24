@@ -141,12 +141,8 @@ export default function MusicSettingsModal() {
 
   if (!isVisible) return null
 
-  const playModeLabels = { sequential: '顺序', loop: '列表循环', random: '随机' }
-  const availableModes = (() => {
-    if (playlist.length === 1) return ['loop']
-    if (playlist.length === 2) return ['sequential', 'loop']
-    return ['sequential', 'loop', 'random']
-  })()
+  const playModeLabels = { loop: '循环', sequential: '顺序', random: '随机' }
+  const allModes = ['loop', 'sequential', 'random']
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(90,74,66,0.4)] backdrop-blur-sm">
@@ -170,7 +166,7 @@ export default function MusicSettingsModal() {
             </label>
             <span className="w-px h-4 bg-border/60" />
             <div className="flex gap-1 bg-border/30 rounded-lg p-0.5">
-              {availableModes.map((key) => (
+              {allModes.map((key) => (
                 <button
                   key={key}
                   onClick={() => setPlayMode(key)}

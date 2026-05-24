@@ -25,23 +25,9 @@ export const useAudioStore = create((set, get) => ({
     }
   },
 
-  setPlaylist: (files) => {
-    const count = files.length
-    const { playMode } = get()
-    // 曲目数自适应：1 首仅循环，2 首禁随机，3+ 首全开
-    let nextMode = playMode
-    if (count === 1) nextMode = 'loop'
-    else if (count === 2 && playMode === 'random') nextMode = 'loop'
-    set({ playlist: files, playMode: nextMode })
-  },
+  setPlaylist: (files) => set({ playlist: files }),
 
-  setPlayMode: (mode) => {
-    const { playlist } = get()
-    const count = playlist.length
-    if (count === 1 && mode !== 'loop') return
-    if (count === 2 && mode === 'random') return
-    set({ playMode: mode })
-  },
+  setPlayMode: (mode) => set({ playMode: mode }),
 
   toggleBlockTracks: (names, isBlock) => {
     const state = get()
@@ -134,11 +120,9 @@ export const useAudioStore = create((set, get) => ({
         nextIdx = Math.floor(Math.random() * playlist.length)
       } else {
         nextIdx += direction
-        if (nextIdx >= playlist.length) nextIdx = playMode === 'loop' ? 0 : -1
-        if (nextIdx < 0) nextIdx = playMode === 'loop' ? playlist.length - 1 : -1
+        if (nextIdx >= playlist.length) nextIdx = 0
+        if (nextIdx < 0) nextIdx = playlist.length - 1
       }
-
-      if (nextIdx === -1) return -1
 
       if (!blockedTracks.includes(playlist[nextIdx].name)) {
         return nextIdx
@@ -149,10 +133,15 @@ export const useAudioStore = create((set, get) => ({
   },
 
   playNext: () => {
-    const { currentIndex, stopAfterPlay } = get()
+    const { currentIndex, stopAfterPlay, playMode } = get()
     if (stopAfterPlay) {
       audioInstance.pause()
       set({ isPlaying: false, currentIndex: -1, currentTime: 0 })
+      return
+    }
+    // 循环：重复当前曲目
+    if (playMode === 'loop' && currentIndex >= 0) {
+      get().playTrack(currentIndex)
       return
     }
     const nextIdx = get()._findValidTrackIndex(currentIndex, 1)
