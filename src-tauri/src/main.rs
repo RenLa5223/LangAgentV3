@@ -146,6 +146,7 @@ fn main() {
         Arc::new(Mutex::new(None));
     let sidecar_child_clone = sidecar_child.clone();
     let sidecar_child_tray = sidecar_child.clone();
+    let sidecar_child_quit = sidecar_child.clone();
 
     // 关闭行为 (默认隐藏到托盘)
     let close_behavior = Arc::new(Mutex::new("tray".to_string()));
@@ -247,7 +248,9 @@ fn main() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
                 let behavior = close_behavior_close.lock().unwrap().clone();
                 if behavior == "quit" {
-                    // 直接退出：不阻止关闭，Tauri 自动清理
+                    // 直接退出：杀 sidecar 并退出进程（系统托盘会阻止 Tauri 自动退出）
+                    kill_sidecar(&sidecar_child_quit);
+                    std::process::exit(0);
                 } else {
                     // 默认：隐藏到托盘
                     let _ = event.window().hide();
