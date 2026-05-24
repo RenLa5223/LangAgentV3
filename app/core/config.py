@@ -82,11 +82,12 @@ USER_PORTRAIT_DIR = os.path.join(_DATA_DIR, "user_portrait")
 ARCHIVE_DIR = os.path.join(_DATA_DIR, "memory_archive")
 TEMP_IMG_DIR = os.path.join(_DATA_DIR, "temp_images")
 MEMORY_RETRY_DIR = os.path.join(_DATA_DIR, "memory_retry")
+MUSIC_DIR = os.path.join(_DATA_DIR, "music")
 
 # 确保所有目录存在
 for _d in [_DATA_DIR, MEM_DIR, CONFIG_DIR, AGENT_AVATAR_DIR, USER_AVATAR_DIR,
            AGENT_PROFILE_DIR, USER_PROFILE_DIR, USER_PORTRAIT_DIR,
-           ARCHIVE_DIR, TEMP_IMG_DIR, MEMORY_RETRY_DIR]:
+           ARCHIVE_DIR, TEMP_IMG_DIR, MEMORY_RETRY_DIR, MUSIC_DIR]:
     os.makedirs(_d, exist_ok=True)
 
 

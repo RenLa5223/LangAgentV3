@@ -6,6 +6,7 @@ import HealthModal from '@/components/modals/HealthModal'
 import ModelConfigModal from '@/components/modals/ModelConfigModal'
 import ResetModal from '@/components/modals/ResetModal'
 import WizardModal from '@/components/modals/WizardModal'
+import MusicSettingsModal from '@/components/modals/MusicSettingsModal'
 import ToastContainer from '@/components/ToastContainer'
 import { useConfigStore } from '@/stores/useConfigStore'
 import { useChatStore } from '@/stores/useChatStore'
@@ -89,6 +90,7 @@ export default function App() {
       <ModelConfigModal />
       <ResetModal />
       <WizardModal />
+      <MusicSettingsModal />
       <ToastContainer />
     </>
   )

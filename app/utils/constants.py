@@ -8,6 +8,5 @@ _MODEL_ERR = '__MODEL_ERROR__'
 ALLOWED_FOLDERS = [
     "memory_core", "config", "agent_profile", "user_profile",
     "user_portrait", "avatars", "memory_archive",
-    "memory_retry", "temp_images", "logs"
+    "memory_retry", "temp_images", "logs", "music"
 ]
-

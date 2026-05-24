@@ -1,6 +1,6 @@
 # LangAgentV3
 
-本地运行的 AI Agent 桌面应用，Tauri + FastAPI + React 混合架构。支持 OpenAI / Anthropic 协议 API，动态端口分配，长短期记忆，RAG 检索，主动消息。
+本地运行的 AI Agent 桌面应用，Tauri + FastAPI + React 混合架构。支持 OpenAI / Anthropic 协议 API，动态端口分配，长短期记忆，RAG 检索，主动消息，本地音乐播放器。
 
 ## 安装
 
@@ -25,7 +25,7 @@
 - **APPDATA 标准化** — 生产环境数据写入 `%APPDATA%\LangAgentV3\Data\`，安装目录干净，卸载不留残留，重装保留全部数据。
 - **全局常量池** — `app/core/constants.py` 集中管理 40+ 个文件名、阈值、超时参数。
 - **前端启动屏障** — 端口就绪前显示加载画面，确保首次 API 调用不失败。
-- **测试零污染** — 7 处隔离点（临时目录重定向、备份还原、mock），55 项测试不触碰真实数据。
+- **测试零污染** — 沙盒隔离（`os.rename` 原子操作 + 专用测试文件），不触碰真实数据。
 - **系统重置** — 支持一键恢复出厂状态，清除全部配置、记忆、归档、头像，前端需输入「确认重置」防误触。
 
 ## 功能
@@ -38,6 +38,7 @@
 - **主动消息** — 可配置时间窗口和间隔的自动触发
 - **图片对话** — 支持粘贴/上传图片
 - **语音输入** — Web Speech API 浏览器端语音识别
+- **音乐播放器** — 灵动岛常驻播放控件，支持 MP3/WAV/FLAC/OGG/AAC/M4A/WMA，拖拽上传，批量屏蔽/删除，206 Partial Content 无损流传输，路由切换播放不中断
 - **电路熔断** — 连续失败计数 + 自动冷却，防 API 频繁重试
 - **安全令牌** — 运行时动态 Session Token，HMAC 常量时间比较
 - **系统诊断** — 6 节点全链路健康检查，含日志流预览
@@ -60,7 +61,7 @@ LangAgentV3/
 │   │   ├── chat.py                  # 聊天与轮询
 │   │   ├── config_endpoints.py      # 配置读写 / 模型探测 / 重置
 │   │   ├── deps.py                  # 依赖注入 / Token 验证
-│   │   ├── files.py                 # 头像 / 临时图片
+│   │   ├── files.py                 # 头像 / 临时图片 / 音乐流 (206 Range)
 │   │   ├── router.py                # 路由聚合
 │   │   └── system.py                # 健康 / 状态 / 版本 / 日志
 │   ├── core/
@@ -75,22 +76,25 @@ LangAgentV3/
 │   │   ├── config_service.py        # 文件读写 / 系统重置
 │   │   └── rag_service.py           # RAG 索引队列消费者
 │   └── utils/
-│       ├── constants.py             # 文件夹白名单
+│       ├── constants.py             # 文件夹白名单 (含 music)
 │       ├── fs_lock.py               # 协程安全文件锁
 │       └── logging.py               # Loguru 日志 (轮转 30 天)
 │
 ├── src/                             # React 前端
 │   ├── main.jsx                     # 入口
-│   ├── App.jsx                      # 根组件 (端口屏障 / 路由 / 初始化)
+│   ├── App.jsx                      # 根组件 (端口屏障 / 路由 / 初始化 / 音乐弹窗)
 │   ├── api/
 │   │   ├── index.js
-│   │   └── request.js              # 动态 baseUrl + Token 注入
+│   │   └── request.js               # 动态 baseUrl + Token 注入
+│   ├── assets/
+│   │   └── tailwind.css             # 全局样式 + marquee 动画
 │   ├── components/
-│   │   ├── chat/                    # ChatHeader / ChatInput / MessageList
+│   │   ├── chat/                    # ChatHeader (灵动岛) / ChatInput / MessageList
 │   │   ├── manage/                  # EditorPanel / Sidebar
-│   │   └── modals/                  # Health / ModelConfig / Reset / Wizard
+│   │   └── modals/                  # Health / ModelConfig / Reset / Wizard / MusicSettings
 │   ├── stores/
 │   │   ├── useAppStore.js           # baseUrl / portReady / initServerPort
+│   │   ├── useAudioStore.js         # 【音乐播放器】Audio 单例 / 播放控制 / 屏蔽
 │   │   ├── useChatStore.js          # 消息 / 轮询
 │   │   └── useConfigStore.js        # 模型 / 主动消息
 │   └── views/
@@ -106,7 +110,7 @@ LangAgentV3/
 │   ├── build_engine.py              # PyInstaller (不含 Data/)
 │   └── generate_icons.py
 │
-└── tests/                           # 55 项，零污染隔离
+└── tests/                           # 沙盒隔离，零污染
     ├── test_api.py
     └── test_core.py
 ```
@@ -153,7 +157,7 @@ cargo tauri build        # 一键生产打包 → .msi + .exe
 ### 测试
 
 ```bash
-python -m pytest tests/ -v   # 55 项，零污染
+python -m pytest tests/ -v   # 沙盒隔离，零污染
 ```
 
 ## 数据目录
@@ -164,8 +168,12 @@ python -m pytest tests/ -v   # 55 项，零污染
 | 生产 (安装的 exe) | `%APPDATA%\LangAgentV3\Data\` |
 | APPDATA 不可用 | exe 同级目录 |
 
-首次启动自动创建全部子目录。`Data/config/config.json` 保存模型 API 配置，其他目录为运行时数据（记忆、画像、日志等）。
+首次启动自动创建全部子目录（含 `music/`）。`Data/config/config.json` 保存模型 API 配置，其他目录为运行时数据（记忆、画像、日志、音乐等）。
 
 ## 系统重置
 
 档案室 → 功能设置 → 系统诊断下方可找到重置入口。需输入「确认重置」后执行，将清除所有配置、记忆、归档、头像，恢复为首次启动状态。数据目录本身不会被删除（下次启动自动重建空文件）。
+
+## 许可证
+
+MIT

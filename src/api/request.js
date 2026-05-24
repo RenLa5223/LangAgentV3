@@ -164,6 +164,36 @@ export async function uploadAvatar(role, imageB64) {
   }
 }
 
+// 【音乐播放器】
+export async function fetchMusicList() {
+  const res = await fetch(url('/api/music/list'))
+  if (res.ok) return await res.json()
+  throw new Error('Failed to fetch music list')
+}
+
+export async function uploadMusic(filename, dataB64) {
+  try {
+    return await apiPost('/api/music/upload', { filename, data: dataB64 })
+  } catch (e) {
+    handleTokenError(e)
+    throw e
+  }
+}
+
+export async function deleteMusic(filename) {
+  const res = await fetch(url(`/api/music/${encodeURIComponent(filename)}`), { method: 'DELETE' })
+  if (res.status === 403) {
+    handleTokenError(new Error('TOKEN_INVALID'))
+    throw new Error('TOKEN_INVALID')
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return await res.json()
+}
+
+export function getMusicStreamUrl(filename) {
+  return url(`/api/music/stream/${encodeURIComponent(filename)}`)
+}
+
 // ---- 重置 ----
 export async function resetSystem() {
   try {

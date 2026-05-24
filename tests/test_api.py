@@ -71,20 +71,26 @@ class TestChatEndpoints(unittest.TestCase):
 
     @patch('app.services.chat_service.call_llm_with_circuit_breaker')
     def test_chat_without_message(self, mock_llm):
-        # Save and restore chat history to prevent test pollution
+        """沙盒隔离：先移走真实聊天记录，阻塞前端 poll 读到脏数据，测试后恢复"""
         history_path = os.path.join(os.path.dirname(__file__), '..', 'Data', 'memory_core', 'chat_history.json')
-        backup = None
+        backup_path = history_path + '.test_backup'
+        backup_existed = False
+
         if os.path.exists(history_path):
-            with open(history_path, 'r', encoding='utf-8') as f:
-                backup = f.read()
+            os.rename(history_path, backup_path)
+            backup_existed = True
+
         try:
-            mock_llm.return_value = '测试回复'
+            mock_llm.return_value = '沙盒测试回复'
             resp = client.post('/api/chat', json={"message": "", "image": None})
             self.assertIn(resp.status_code, [200, 500])
         finally:
-            if backup is not None:
-                with open(history_path, 'w', encoding='utf-8') as f:
-                    f.write(backup)
+            # 清理测试产生的脏数据
+            if os.path.exists(history_path):
+                os.remove(history_path)
+            # 恢复原有聊天记录
+            if backup_existed:
+                os.rename(backup_path, history_path)
 
     def test_signature_no_config(self):
         resp = client.get('/api/signature')

@@ -349,6 +349,15 @@ export default function ChatInput() {
           </div>
           <div
             className="flex flex-col items-center gap-2 cursor-pointer group"
+            onClick={() => { openModal('music-settings'); setShowDrawer(false) }}
+          >
+            <div className="w-[60px] h-[60px] bg-white rounded-2xl flex items-center justify-center text-3xl shadow-soft group-hover:-translate-y-1 group-hover:shadow-[0_8px_20px_rgba(212,163,115,0.2)] transition-all duration-200">
+              🎵
+            </div>
+            <span className="text-xs text-text-sub">音乐设置</span>
+          </div>
+          <div
+            className="flex flex-col items-center gap-2 cursor-pointer group"
             onClick={() => { openModal('reset'); setShowDrawer(false) }}
           >
             <div className="w-[60px] h-[60px] bg-white rounded-2xl flex items-center justify-center text-3xl shadow-soft group-hover:-translate-y-1 group-hover:shadow-[0_8px_20px_rgba(212,163,115,0.2)] transition-all duration-200" style={{ color: '#e07a5f' }}>
