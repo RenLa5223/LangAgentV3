@@ -704,8 +704,6 @@ function SettingsEditor({ saveHandlerRef }) {
   const agentName = useConfigStore((s) => s.agentName)
   const userName = useConfigStore((s) => s.userName)
   const proactiveSettings = useConfigStore((s) => s.proactiveSettings)
-  const closeBehavior = useConfigStore((s) => s.closeBehavior)
-
   const [local, setLocal] = useState({
     aiName: agentName,
     userName,
@@ -716,7 +714,6 @@ function SettingsEditor({ saveHandlerRef }) {
     proactiveEndM: proactiveSettings.endMinute,
     proactiveMin: proactiveSettings.minInterval,
     proactiveMax: proactiveSettings.maxInterval,
-    closeBehavior
   })
 
   useEffect(() => {
@@ -730,8 +727,7 @@ function SettingsEditor({ saveHandlerRef }) {
       proactiveEndH: s.proactiveSettings.endHour,
       proactiveEndM: s.proactiveSettings.endMinute,
       proactiveMin: s.proactiveSettings.minInterval,
-      proactiveMax: s.proactiveSettings.maxInterval,
-      closeBehavior: s.closeBehavior
+      proactiveMax: s.proactiveSettings.maxInterval
     })
   }, [])
 
@@ -743,7 +739,6 @@ function SettingsEditor({ saveHandlerRef }) {
       useConfigStore.setState({
         agentName: local.aiName,
         userName: local.userName,
-        closeBehavior: local.closeBehavior,
         proactiveSettings: {
           enabled: local.proactiveEnabled,
           startHour: local.proactiveStartH,
@@ -801,19 +796,6 @@ function SettingsEditor({ saveHandlerRef }) {
             onChange={(e) => update('userName', e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl border-none bg-white shadow-inner text-base text-text-main outline-none font-[inherit]"
           />
-        </div>
-
-        {/* Close behavior */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm text-text-sub font-bold">关闭窗口行为</label>
-          <select
-            value={local.closeBehavior}
-            onChange={(e) => update('closeBehavior', e.target.value)}
-            className="px-3 py-2.5 rounded-xl border border-border bg-white shadow-inner font-[inherit] text-base text-text-main cursor-pointer outline-none"
-          >
-            <option value="tray">最小化到托盘</option>
-            <option value="quit">直接退出</option>
-          </select>
         </div>
 
         {/* System diagnostics */}

@@ -23,7 +23,6 @@ export const useConfigStore = create((set, get) => ({
     maxInterval: 120
   },
 
-  closeBehavior: 'tray',
   avatarVersion: 0,
 
   bumpAvatarVersion: () => set((s) => ({ avatarVersion: s.avatarVersion + 1 })),
@@ -57,7 +56,6 @@ export const useConfigStore = create((set, get) => ({
           maxInterval: cfg.proactive_max ?? 120
         }
       }
-      if (cfg.close_behavior) updates.closeBehavior = cfg.close_behavior
       set(updates)
       return cfg
     } catch (e) {
@@ -86,12 +84,6 @@ export const useConfigStore = create((set, get) => ({
       proactive_end: `${String(state.proactiveSettings.endHour).padStart(2,'0')}:${String(state.proactiveSettings.endMinute).padStart(2,'0')}`,
       proactive_min: state.proactiveSettings.minInterval,
       proactive_max: state.proactiveSettings.maxInterval,
-      close_behavior: state.closeBehavior
-    }
-    // Sync close behavior to Rust Tauri shell (if in Tauri mode)
-    if (window.__TAURI__) {
-      const behavior = state.closeBehavior === 'quit' ? 'quit' : 'tray'
-      window.__TAURI__.invoke('set_close_behavior', { behavior }).catch(() => {})
     }
     return await saveConfig(cfg)
   }
