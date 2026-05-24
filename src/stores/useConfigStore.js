@@ -23,7 +23,7 @@ export const useConfigStore = create((set, get) => ({
     maxInterval: 120
   },
 
-  closeBehavior: 'minimize',
+  closeBehavior: 'tray',
   avatarVersion: 0,
 
   bumpAvatarVersion: () => set((s) => ({ avatarVersion: s.avatarVersion + 1 })),

@@ -20,6 +20,9 @@ use tauri::{
 /// ====== 动态端口管理状态 ======
 struct ServerPort(u16);
 
+/// ====== 关闭行为状态 (tray / quit) ======
+struct CloseBehavior(Arc<Mutex<String>>);
+
 /// ====== Rust IPC: 硬件感知 ======
 #[tauri::command]
 fn get_system_hardware_info() -> String {
@@ -32,6 +35,13 @@ fn get_system_hardware_info() -> String {
 #[tauri::command]
 fn get_server_port(state: tauri::State<'_, ServerPort>) -> u16 {
     state.0
+}
+
+/// ====== Rust IPC: 前端设置关闭行为 ======
+#[tauri::command]
+fn set_close_behavior(behavior: String, state: tauri::State<'_, CloseBehavior>) {
+    println!("[Tauri] 关闭行为已设置为: {}", behavior);
+    *state.0.lock().unwrap() = behavior;
 }
 
 /// Python Sidecar 进程句柄
@@ -68,7 +78,6 @@ fn allocate_dynamic_port() -> Result<u16, String> {
     let port = listener.local_addr()
         .map_err(|e| format!("读取端口失败: {}", e))?
         .port();
-    // 显式释放 listener，端口交给 Python sidecar 使用
     drop(listener);
     println!("[Tauri] 动态端口已分配: {}", port);
     Ok(port)
@@ -138,6 +147,10 @@ fn main() {
     let sidecar_child_clone = sidecar_child.clone();
     let sidecar_child_tray = sidecar_child.clone();
 
+    // 关闭行为 (默认隐藏到托盘)
+    let close_behavior = Arc::new(Mutex::new("tray".to_string()));
+    let close_behavior_close = close_behavior.clone();
+
     tauri::Builder::default()
         // ----- 单实例防多开 -----
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -147,12 +160,15 @@ fn main() {
             }
         }))
         // ----- 注册 Rust IPC 指令 -----
-        .invoke_handler(tauri::generate_handler![get_system_hardware_info, get_server_port])
+        .invoke_handler(tauri::generate_handler![
+            get_system_hardware_info, get_server_port, set_close_behavior
+        ])
         // ----- 系统托盘 -----
         .system_tray(system_tray)
         .manage(SidecarState {
             child: sidecar_child.clone(),
         })
+        .manage(CloseBehavior(close_behavior))
         // ----- 启动阶段 -----
         .setup(move |app| {
             // 1. 动态分配端口
@@ -226,11 +242,17 @@ fn main() {
             }
             _ => {}
         })
-        // ----- 关闭窗口 → 隐藏到托盘 -----
-        .on_window_event(|event| {
+        // ----- 关闭窗口 → 根据配置决定行为 -----
+        .on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
-                let _ = event.window().hide();
-                api.prevent_close();
+                let behavior = close_behavior_close.lock().unwrap().clone();
+                if behavior == "quit" {
+                    // 直接退出：不阻止关闭，Tauri 自动清理
+                } else {
+                    // 默认：隐藏到托盘
+                    let _ = event.window().hide();
+                    api.prevent_close();
+                }
             }
         })
         // ----- 构建 & 运行 -----

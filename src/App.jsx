@@ -41,7 +41,13 @@ export default function App() {
       }
 
       // 2. Load config
-      await useConfigStore.getState().loadConfigFromServer()
+      const cfg = await useConfigStore.getState().loadConfigFromServer()
+
+      // 2b. Sync close behavior to Tauri shell
+      if (window.__TAURI__ && cfg) {
+        const behavior = cfg.close_behavior === 'quit' ? 'quit' : 'tray'
+        window.__TAURI__.invoke('set_close_behavior', { behavior }).catch(() => {})
+      }
 
       // 3. Load chat history
       await useChatStore.getState().loadHistory()

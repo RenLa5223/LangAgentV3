@@ -811,8 +811,7 @@ function SettingsEditor({ saveHandlerRef }) {
             onChange={(e) => update('closeBehavior', e.target.value)}
             className="px-3 py-2.5 rounded-xl border border-border bg-white shadow-inner font-[inherit] text-base text-text-main cursor-pointer outline-none"
           >
-            <option value="minimize">最小化到托盘</option>
-            <option value="hide">隐藏窗口</option>
+            <option value="tray">最小化到托盘</option>
             <option value="quit">直接退出</option>
           </select>
         </div>
