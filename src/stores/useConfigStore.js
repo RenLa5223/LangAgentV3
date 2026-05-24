@@ -88,6 +88,11 @@ export const useConfigStore = create((set, get) => ({
       proactive_max: state.proactiveSettings.maxInterval,
       close_behavior: state.closeBehavior
     }
+    // Sync close behavior to Rust Tauri shell (if in Tauri mode)
+    if (window.__TAURI__) {
+      const behavior = state.closeBehavior === 'quit' ? 'quit' : 'tray'
+      window.__TAURI__.invoke('set_close_behavior', { behavior }).catch(() => {})
+    }
     return await saveConfig(cfg)
   }
 }))
