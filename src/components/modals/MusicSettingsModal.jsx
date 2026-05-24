@@ -18,6 +18,8 @@ export default function MusicSettingsModal() {
   const setPlayMode = useAudioStore((s) => s.setPlayMode)
   const toggleBlockTracks = useAudioStore((s) => s.toggleBlockTracks)
   const removeFromPlaylist = useAudioStore((s) => s.removeFromPlaylist)
+  const stopAfterPlay = useAudioStore((s) => s.stopAfterPlay)
+  const setStopAfterPlay = useAudioStore((s) => s.setStopAfterPlay)
 
   const isVisible = activeModal === 'music-settings'
 
@@ -140,6 +142,11 @@ export default function MusicSettingsModal() {
   if (!isVisible) return null
 
   const playModeLabels = { sequential: '顺序', loop: '列表循环', random: '随机' }
+  const availableModes = (() => {
+    if (playlist.length === 1) return ['loop']
+    if (playlist.length === 2) return ['sequential', 'loop']
+    return ['sequential', 'loop', 'random']
+  })()
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(90,74,66,0.4)] backdrop-blur-sm">
@@ -151,18 +158,31 @@ export default function MusicSettingsModal() {
       >
         <div className="flex justify-between items-center mb-4 shrink-0">
           <h3 className="m-0 text-primary-dark text-lg font-bold">音乐列表</h3>
-          <div className="flex gap-1 bg-border/30 rounded-lg p-0.5">
-            {Object.entries(playModeLabels).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setPlayMode(key)}
-                className={`px-2 py-1 rounded-md text-xs font-bold border-none cursor-pointer transition-all ${
-                  playMode === key ? 'bg-white text-primary-dark shadow-sm' : 'bg-transparent text-text-sub hover:text-text-main'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <label className={`flex items-center gap-1.5 text-xs cursor-pointer select-none ${stopAfterPlay ? 'text-[#e07a5f]' : 'text-text-sub'}`}>
+              <input
+                type="checkbox"
+                checked={stopAfterPlay}
+                onChange={(e) => setStopAfterPlay(e.target.checked)}
+                className="w-3.5 h-3.5 accent-[#e07a5f] cursor-pointer"
+              />
+              播完即停
+            </label>
+            <span className="w-px h-4 bg-border/60" />
+            <div className="flex gap-1 bg-border/30 rounded-lg p-0.5">
+              {availableModes.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setPlayMode(key)}
+                  disabled={stopAfterPlay}
+                  className={`px-2 py-1 rounded-md text-xs font-bold border-none cursor-pointer transition-all ${
+                    stopAfterPlay ? 'opacity-40 cursor-not-allowed text-text-sub' : playMode === key ? 'bg-white text-primary-dark shadow-sm' : 'bg-transparent text-text-sub hover:text-text-main'
+                  }`}
+                >
+                  {playModeLabels[key]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

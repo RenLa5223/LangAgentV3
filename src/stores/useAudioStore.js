@@ -13,6 +13,7 @@ export const useAudioStore = create((set, get) => ({
   duration: 0,
   isExpanded: false,
   blockedTracks: [],
+  stopAfterPlay: false,
 
   initAudioEvents: () => {
     audioInstance.onloadedmetadata = () => set({ duration: audioInstance.duration || 0 })
@@ -24,12 +25,41 @@ export const useAudioStore = create((set, get) => ({
     }
   },
 
-  setPlaylist: (files) => set({ playlist: files }),
+  setPlaylist: (files) => {
+    const count = files.length
+    const { playMode } = get()
+    // 曲目数自适应：1 首仅循环，2 首禁随机，3+ 首全开
+    let nextMode = playMode
+    if (count === 1) nextMode = 'loop'
+    else if (count === 2 && playMode === 'random') nextMode = 'loop'
+    set({ playlist: files, playMode: nextMode })
+  },
+
+  setPlayMode: (mode) => {
+    const { playlist } = get()
+    const count = playlist.length
+    if (count === 1 && mode !== 'loop') return
+    if (count === 2 && mode === 'random') return
+    set({ playMode: mode })
+  },
 
   toggleBlockTracks: (names, isBlock) => {
-    const current = new Set(get().blockedTracks)
-    names.forEach(name => isBlock ? current.add(name) : current.delete(name))
-    set({ blockedTracks: Array.from(current) })
+    const state = get()
+    const currentSet = new Set(state.blockedTracks)
+    names.forEach(name => isBlock ? currentSet.add(name) : currentSet.delete(name))
+    set({ blockedTracks: Array.from(currentSet) })
+
+    // 如果屏蔽的是正在播放的歌曲，立即中断并跳到下一首
+    if (isBlock && state.currentIndex >= 0) {
+      const playingName = state.playlist[state.currentIndex]?.name
+      if (playingName && names.includes(playingName)) {
+        audioInstance.pause()
+        audioInstance.removeAttribute('src')
+        audioInstance.load()
+        set({ isPlaying: false, currentTime: 0 })
+        get().playNext()
+      }
+    }
   },
 
   removeFromPlaylist: (name) => {
@@ -62,7 +92,6 @@ export const useAudioStore = create((set, get) => ({
 
     const url = getMusicStreamUrl(track.name)
     audioInstance.src = url
-
     audioInstance.play().then(() => {
       set({ currentIndex: index, isPlaying: true, isExpanded: true })
     }).catch(err => {
@@ -120,7 +149,12 @@ export const useAudioStore = create((set, get) => ({
   },
 
   playNext: () => {
-    const { currentIndex } = get()
+    const { currentIndex, stopAfterPlay } = get()
+    if (stopAfterPlay) {
+      audioInstance.pause()
+      set({ isPlaying: false, currentIndex: -1, currentTime: 0 })
+      return
+    }
     const nextIdx = get()._findValidTrackIndex(currentIndex, 1)
     if (nextIdx !== -1) {
       get().playTrack(nextIdx)
@@ -145,6 +179,6 @@ export const useAudioStore = create((set, get) => ({
     }
   },
 
-  setPlayMode: (mode) => set({ playMode: mode }),
-  setExpanded: (val) => set({ isExpanded: val })
+  setExpanded: (val) => set({ isExpanded: val }),
+  setStopAfterPlay: (val) => set({ stopAfterPlay: val })
 }))
