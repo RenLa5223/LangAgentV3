@@ -144,6 +144,7 @@ export const useChatStore = create((set, get) => ({
         const data = await pollActiveMessages(count)
         if (data.new_messages && data.new_messages.length > 0) {
           set({ isTyping: true })
+          const agentMsgs = []
           for (const m of data.new_messages) {
             set((s) => ({
               chatHistory: [
@@ -151,8 +152,22 @@ export const useChatStore = create((set, get) => ({
                 { role: m.role, content: m.content, time: m.time || new Date().toLocaleTimeString() }
               ]
             }))
+            if (m.role === 'agent') agentMsgs.push(m.content)
           }
           set({ isTyping: false })
+          // 主动消息原生弹窗（窗口隐藏时）
+          if (window.__TAURI__ && document.hidden && agentMsgs.length > 0) {
+            try {
+              const { useConfigStore } = await import('./useConfigStore')
+              const agentName = useConfigStore.getState().agentName
+              const body = agentMsgs.join(' ').substring(0, 120)
+              window.__TAURI__.notification.sendNotification({
+                title: agentName || 'Agent',
+                body,
+                icon: '/api/avatar/agent'
+              }).catch(() => {})
+            } catch (e) { /* ignore */ }
+          }
         }
       } catch (e) { /* ignore poll errors */ }
     }
