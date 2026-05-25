@@ -97,17 +97,14 @@ export const useChatStore = create((set, get) => ({
           get().appendMessage('agent', part)
         }
 
-        // Native notification via Tauri
-        if (window.__TAURI__ && document.hidden) {
+        // Native notification via Tauri v2
+        if (document.hidden) {
           try {
             const { useConfigStore } = await import('./useConfigStore')
             const agentName = useConfigStore.getState().agentName
             const body = data.reply_parts.join(' ').substring(0, 120)
-            window.__TAURI__.notification.sendNotification({
-              title: agentName || 'Agent',
-              body,
-              icon: '/api/avatar/agent'
-            }).catch(() => {})
+            const { sendNotification } = await import('@tauri-apps/plugin-notification')
+            sendNotification({ title: agentName || 'Agent', body })
           } catch (e) { /* ignore */ }
         }
       } else if (data?.message) {
@@ -156,16 +153,13 @@ export const useChatStore = create((set, get) => ({
           }
           set({ isTyping: false })
           // 主动消息原生弹窗（窗口隐藏时）
-          if (window.__TAURI__ && document.hidden && agentMsgs.length > 0) {
+          if (document.hidden && agentMsgs.length > 0) {
             try {
               const { useConfigStore } = await import('./useConfigStore')
               const agentName = useConfigStore.getState().agentName
               const body = agentMsgs.join(' ').substring(0, 120)
-              window.__TAURI__.notification.sendNotification({
-                title: agentName || 'Agent',
-                body,
-                icon: '/api/avatar/agent'
-              }).catch(() => {})
+              const { sendNotification } = await import('@tauri-apps/plugin-notification')
+              sendNotification({ title: agentName || 'Agent', body })
             } catch (e) { /* ignore */ }
           }
         }

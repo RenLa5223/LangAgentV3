@@ -12,7 +12,7 @@
 
 | 层 | 技术 | 说明 |
 |---|---|---|
-| 桌面壳 | Tauri 1.7 (Rust) | 动态端口分配、环境变量注入、IPC、系统托盘、单实例锁、Alt+Space 全局快捷键 |
+| 桌面壳 | Tauri 2.x (Rust) | 动态端口分配、环境变量注入、IPC、系统托盘、单实例锁、Alt+Space 全局快捷键 |
 | 后端 | Python FastAPI + Uvicorn | 异步 API，`LANGAGENT_PORT` 环境变量优先，默认 5622，绑定 `127.0.0.1` |
 | 前端 | React 19 + Vite 8 | SPA，智能检测 Tauri/Web 切换动态 Base URL |
 | 样式 | TailwindCSS 3 | 新拟态 (Neumorphism) 设计 |
@@ -101,10 +101,12 @@ LangAgentV3/
 │       ├── ChatView.jsx             # /
 │       └── ManageView.jsx           # /manage
 │
-├── src-tauri/                       # Tauri 桌面壳
-│   ├── tauri.conf.json              # 打包流水线 (beforeBuildCommand 一键串联)
+├── src-tauri/                       # Tauri v2 桌面壳
+│   ├── tauri.conf.json              # 打包流水线 + NSIS 配置
+│   ├── capabilities/default.json    # 权限声明（v2 capabilities 体系）
+│   ├── installer.nsh                # NSIS 自定义钩子（kill 进程 / 卸载数据清理）
 │   ├── icons/                       # 5 尺寸应用图标
-│   └── src/main.rs                  # 动态端口 + IPC + Sidecar + 托盘
+│   └── src/main.rs                  # 动态端口 + IPC + Sidecar + 托盘 + 全局快捷键
 │
 ├── scripts/
 │   ├── build_engine.py              # PyInstaller (不含 Data/)

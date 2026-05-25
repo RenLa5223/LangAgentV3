@@ -13,6 +13,9 @@ static/
 *.exe
 src-tauri/bin/
 
+# Tauri v2 generated
+src-tauri/gen/
+
 # User data (may contain API keys)
 Data/
 

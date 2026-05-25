@@ -27,20 +27,15 @@ export const useAppStore = create((set, get) => ({
   initServerPort: async () => {
     if (get().portReady) return
     try {
-      // 检测 Tauri 环境：window.__TAURI__ 由 Tauri v1 注入
-      if (window.__TAURI__) {
-        const port = await window.__TAURI__.invoke('get_server_port')
-        const url = `http://127.0.0.1:${port}`
-        set({ serverBaseUrl: url, portReady: true })
-        console.log('[AppStore] Tauri 模式，后端地址:', url)
-      } else {
-        // 纯 Web 开发模式：空 baseUrl，走 Vite proxy
-        set({ serverBaseUrl: '', portReady: true })
-        console.log('[AppStore] Web 开发模式，使用 Vite 代理')
-      }
+      const { invoke } = await import('@tauri-apps/api/core')
+      const port = await invoke('get_server_port')
+      const url = `http://127.0.0.1:${port}`
+      set({ serverBaseUrl: url, portReady: true })
+      console.log('[AppStore] Tauri 模式，后端地址:', url)
     } catch (e) {
-      console.error('[AppStore] 端口初始化失败:', e)
+      // Tauri API 不可用，纯 Web 开发模式
       set({ serverBaseUrl: '', portReady: true })
+      console.log('[AppStore] Web 开发模式，使用 Vite 代理')
     }
   }
 }))

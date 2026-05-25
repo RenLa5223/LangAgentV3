@@ -1,76 +1,18 @@
 {
+  "productName": "LangAgentV3",
+  "version": "1.0.4",
+  "identifier": "com.langagent.v3.app",
   "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build && python scripts/build_engine.py",
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist",
-    "withGlobalTauri": true
+    "beforeBuildCommand": "npm run build && python scripts/build_engine.py"
   },
-  "package": {
-    "productName": "LangAgentV3",
-    "version": "1.0.3"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true,
-        "sidecar": true,
-        "scope": [
-          {
-            "name": "bin/core-engine",
-            "sidecar": true
-          }
-        ]
-      },
-      "process": {
-        "all": true
-      },
-      "window": {
-        "all": true
-      },
-      "globalShortcut": {
-        "all": true
-      },
-      "notification": {
-        "all": true
-      },
-      "os": {
-        "all": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.langagent.v3.app",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "externalBin": [
-        "bin/core-engine"
-      ],
-      "copyright": "",
-      "category": "DeveloperTool",
-      "shortDescription": "LangAgent",
-      "longDescription": "本地运行的 Agent"
-    },
-    "security": {
-      "csp": null
-    },
-    "systemTray": {
-      "iconPath": "icons/icon.ico",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false
-    },
+  "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "LangAgent V3",
-        "url": "about:blank",
         "width": 1100,
         "height": 750,
         "minWidth": 800,
@@ -79,9 +21,41 @@
         "fullscreen": false,
         "center": true,
         "visible": false,
-        "decorations": true,
         "additionalBrowserArgs": "--use-fake-ui-for-media-stream"
       }
-    ]
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": [
+      "bin/core-engine"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "./installer.nsh"
+      }
+    },
+    "publisher": "RenLa",
+    "copyright": "",
+    "category": "DeveloperTool",
+    "shortDescription": "LangAgent",
+    "longDescription": "本地运行的 Agent"
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
   }
 }

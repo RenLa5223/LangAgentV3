@@ -85,12 +85,11 @@ export default function HealthModal() {
         appendLog('✔ 全链路扫描完成：系统节点运转正常。')
 
         // Try Tauri hardware info
-        if (window.__TAURI__) {
-          try {
-            const info = await window.__TAURI__.tauri.invoke('get_system_hardware_info')
-            appendLog(`[硬件层 Rust IPC]: ${info}`)
-          } catch (e) { /* ignore */ }
-        }
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          const info = await invoke('get_system_hardware_info')
+          appendLog(`[硬件层 Rust IPC]: ${info}`)
+        } catch (e) { /* ignore */ }
       } else {
         appendLog('✘ 发现异常节点：系统内核无响应或无配置文件读写权限。')
       }
