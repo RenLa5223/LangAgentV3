@@ -163,5 +163,83 @@ class TestShowEndpoint(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+class TestMusicEndpoints(unittest.TestCase):
+    """【音乐播放器】API 端点测试"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.music_dir = os.path.join(
+            os.path.dirname(__file__), '..', 'Data', 'music'
+        )
+        os.makedirs(cls.music_dir, exist_ok=True)
+
+    def setUp(self):
+        for f in os.listdir(self.music_dir):
+            os.remove(os.path.join(self.music_dir, f))
+
+    def test_list_empty(self):
+        """空音乐库返回空列表"""
+        resp = client.get('/api/music/list')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {'files': []})
+
+    def test_list_with_files(self):
+        """音乐库文件列表正确返回"""
+        open(os.path.join(self.music_dir, 'test.mp3'), 'w').close()
+        open(os.path.join(self.music_dir, 'demo.wav'), 'w').close()
+        resp = client.get('/api/music/list')
+        data = resp.json()
+        self.assertEqual(len(data['files']), 2)
+        names = [f['name'] for f in data['files']]
+        self.assertIn('test.mp3', names)
+        self.assertIn('demo.wav', names)
+
+    def test_stream_206_range(self):
+        """206 Partial Content 范围请求"""
+        path = os.path.join(self.music_dir, 'song.mp3')
+        with open(path, 'wb') as f:
+            f.write(b'A' * 100)
+        resp = client.get('/api/music/stream/song.mp3',
+                          headers={'Range': 'bytes=0-49'})
+        self.assertEqual(resp.status_code, 206)
+        self.assertIn('Content-Range', resp.headers)
+        self.assertEqual(resp.headers['Content-Range'], 'bytes 0-49/100')
+        self.assertEqual(len(resp.content), 50)
+
+    def test_stream_404(self):
+        """请求不存在的音频返回 404"""
+        resp = client.get('/api/music/stream/ghost.flac')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_upload_and_delete(self):
+        """上传后文件存在，删除后消失"""
+        resp = client.post('/api/music/upload', json={
+            'filename': 'up.mp3',
+            'data': 'dGVzdA=='  # base64("test")
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(os.path.exists(os.path.join(self.music_dir, 'up.mp3')))
+
+        resp = client.delete('/api/music/up.mp3')
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(os.path.exists(os.path.join(self.music_dir, 'up.mp3')))
+
+    def test_upload_bad_format(self):
+        """不支持的文件格式返回 400"""
+        resp = client.post('/api/music/upload', json={
+            'filename': 'virus.exe',
+            'data': 'dGVzdA=='
+        })
+        self.assertEqual(resp.status_code, 400)
+
+    def test_upload_no_data(self):
+        """空数据返回 400"""
+        resp = client.post('/api/music/upload', json={
+            'filename': 'x.mp3',
+            'data': ''
+        })
+        self.assertEqual(resp.status_code, 400)
+
+
 if __name__ == '__main__':
     unittest.main()
