@@ -241,5 +241,114 @@ class TestMusicEndpoints(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class TestMemoryStar(unittest.TestCase):
+    """记忆星标 API"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.summary_path = os.path.join(
+            os.path.dirname(__file__), '..', 'Data', 'memory_core', 'memory_summary.json'
+        )
+        cls.backup_path = cls.summary_path + '.star_test_backup'
+        cls.backup_existed = os.path.exists(cls.summary_path)
+        if cls.backup_existed:
+            os.rename(cls.summary_path, cls.backup_path)
+
+    @classmethod
+    def tearDownClass(cls):
+        if os.path.exists(cls.summary_path):
+            os.remove(cls.summary_path)
+        if cls.backup_existed:
+            os.rename(cls.backup_path, cls.summary_path)
+
+    def setUp(self):
+        # 每次测试前写入干净的测试数据
+        import json, time as _t
+        test_data = {
+            "items": [
+                {"content": "测试记忆1", "importance": 8, "time": _t.strftime('%Y-%m-%d %H:%M:%S')},
+                {"content": "测试记忆2", "importance": 5, "time": "2020-01-01 12:00:00"},
+            ]
+        }
+        with open(self.summary_path, 'w', encoding='utf-8') as f:
+            json.dump(test_data, f, ensure_ascii=False)
+
+    def test_star_memory(self):
+        resp = client.post('/api/memory/star', json={"item_index": 0, "action": "star"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['success'])
+        self.assertTrue(data['item']['starred'])
+        self.assertIn('frozen_score', data['item'])
+
+    def test_star_out_of_bounds(self):
+        resp = client.post('/api/memory/star', json={"item_index": 99, "action": "star"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_star_invalid_action(self):
+        resp = client.post('/api/memory/star', json={"item_index": 0, "action": "invalid"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_unstar_restores_time(self):
+        # 先星标
+        resp = client.post('/api/memory/star', json={"item_index": 0, "action": "star"})
+        # 再取消
+        resp = client.post('/api/memory/star', json={"item_index": 0, "action": "unstar"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['success'])
+        self.assertNotIn('starred', data['item'])
+        self.assertNotIn('frozen_score', data['item'])
+
+
+class TestPluginEndpoints(unittest.TestCase):
+    """插件管理 API"""
+
+    def test_list_plugins(self):
+        resp = client.get('/api/plugins/list')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('plugins', resp.json())
+
+    def test_reload_plugins(self):
+        resp = client.post('/api/plugins/reload')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['success'])
+        self.assertIn('plugins', data)
+
+    def test_toggle_not_found(self):
+        resp = client.post('/api/plugins/toggle', json={"plugin_id": "nonexistent", "enabled": True})
+        self.assertEqual(resp.status_code, 404)
+
+    def test_settings_not_found(self):
+        resp = client.get('/api/plugins/settings/nonexistent')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_status_not_found(self):
+        resp = client.get('/api/plugins/status/nonexistent')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"status": {}})
+
+    def test_static_not_found(self):
+        resp = client.get('/api/plugins/static/nonexistent/index.html')
+        self.assertEqual(resp.status_code, 404)
+
+    @patch('subprocess.Popen')
+    def test_open_folder(self, mock_popen):
+        resp = client.get('/api/plugins/open_folder')
+        self.assertEqual(resp.status_code, 200)
+
+
+class TestWebhookEndpoints(unittest.TestCase):
+    """外部通道 API"""
+
+    def test_sync_invoke_no_key_required(self):
+        """external_api_key 未设置时应放行"""
+        resp = client.post('/api/v1/chat/sync_invoke', json={
+            "user_text": "test", "image_base64": None
+        })
+        self.assertIn(resp.status_code, [200, 500])
+
+
 if __name__ == '__main__':
     unittest.main()

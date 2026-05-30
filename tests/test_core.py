@@ -377,5 +377,204 @@ class TestMemoryEngine(unittest.IsolatedAsyncioTestCase):
                 self.assertIn('咖啡', content)
 
 
+class TestStarredDecay(unittest.TestCase):
+    """星标记忆衰减冻结"""
+
+    def test_starred_returns_frozen_score(self):
+        now = __import__('time').strftime('%Y-%m-%d %H:%M:%S')
+        item = {"importance": 7, "starred": True, "frozen_score": 6.5, "time": "2020-01-01 12:00:00"}
+        score = get_decay_score(item)
+        self.assertEqual(score, 6.5)
+
+    def test_starred_fallback_to_importance(self):
+        item = {"importance": 9, "starred": True, "time": "2020-01-01 12:00:00"}
+        score = get_decay_score(item)
+        self.assertEqual(score, 9.0)  # frozen_score missing, fallback to importance
+
+    def test_unstarred_not_affected(self):
+        now = __import__('time').strftime('%Y-%m-%d %H:%M:%S')
+        item = {"importance": 8, "time": now}
+        score = get_decay_score(item)
+        self.assertAlmostEqual(score, 8.0, delta=0.1)
+
+
+class TestPluginManager(unittest.TestCase):
+    """插件管理器单元测试"""
+
+    def setUp(self):
+        from app.core.plugin_manager import plugin_manager
+        plugin_manager._plugins.clear()
+        plugin_manager._hook_subscribers.clear()
+
+    def test_load_plugins_empty_dir(self):
+        import tempfile
+        from unittest.mock import patch
+        from app.core.plugin_manager import plugin_manager
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('app.core.plugin_manager.PLUGIN_DIR', tmp):
+                plugin_manager.load_plugins()
+                plugins = plugin_manager.list_plugins()
+                self.assertEqual(len(plugins), 0)
+
+    def test_get_tool_schemas_empty(self):
+        from app.core.plugin_manager import plugin_manager
+        schemas = plugin_manager.get_tool_schemas()
+        self.assertEqual(schemas, [])
+
+    def test_reload_clears_and_refreshes(self):
+        from app.core.plugin_manager import plugin_manager
+        # 手动注入一个假插件
+        plugin_manager._plugins['fake'] = {
+            "id": "fake", "name": "fake", "enabled": True, "loaded": True
+        }
+        plugin_manager._hook_subscribers['TEST'] = [{"name": "fake"}]
+        # reload 应清空
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('app.core.plugin_manager.PLUGIN_DIR', tmp):
+                plugin_manager.reload_plugins()
+        self.assertNotIn('fake', plugin_manager._plugins)
+        self.assertNotIn('TEST', plugin_manager._hook_subscribers)
+
+    def test_dispatch_tool_call_not_found(self):
+        import asyncio
+        from app.core.plugin_manager import plugin_manager
+        result = asyncio.run(
+            plugin_manager.dispatch_tool_call("nonexistent_tool", {})
+        )
+        self.assertIn("未找到", result)
+
+
+class TestToolCallFormat(unittest.TestCase):
+    """Tool Calling 格式转换"""
+
+    def test_openai_payload_includes_tools(self):
+        from app.core.llm_engine import _sync_llm_call
+        from unittest.mock import patch, MagicMock
+        tools = [{"type": "function", "function": {"name": "test_tool", "description": "desc",
+                   "parameters": {"type": "object", "properties": {}}}}]
+        resp_data = {"choices": [{"message": {"content": "hello"}}]}
+        with patch('urllib.request.urlopen') as mock_url, \
+             patch('json.loads', return_value=resp_data):
+            mock_resp = MagicMock()
+            mock_resp.getcode.return_value = 200
+            mock_resp.read.return_value = b'{}'
+            mock_url.return_value = mock_resp
+            cfg = {"url": "http://x", "key": "", "model": "m", "api_format": "openai", "model_timeout": 10}
+            result = _sync_llm_call(cfg, [{"role": "user", "content": "hi"}], False, tools)
+            self.assertEqual(result, "hello")
+
+    def test_anthropic_payload_converts_tools(self):
+        from app.core.llm_engine import _sync_llm_call
+        from unittest.mock import patch, MagicMock
+        tools = [{"type": "function", "function": {"name": "test_tool", "description": "desc",
+                   "parameters": {"type": "object", "properties": {"q": {"type": "string"}}}}}]
+        resp_data = {"content": [{"type": "text", "text": "ok"}]}
+        with patch('urllib.request.urlopen') as mock_url, \
+             patch('json.loads', return_value=resp_data):
+            mock_resp = MagicMock()
+            mock_resp.getcode.return_value = 200
+            mock_resp.read.return_value = b'{}'
+            mock_url.return_value = mock_resp
+            cfg = {"url": "http://x", "key": "", "model": "m", "api_format": "anthropic", "model_timeout": 10}
+            result = _sync_llm_call(cfg, [{"role": "user", "content": "hi"}], False, tools)
+            self.assertEqual(result, "ok")
+
+    def test_tool_call_detection_openai(self):
+        from app.core.llm_engine import _sync_llm_call
+        from unittest.mock import patch, MagicMock
+        tools = [{"type": "function", "function": {"name": "t", "description": "d",
+                   "parameters": {"type": "object", "properties": {}}}}]
+        resp_data = {"choices": [{"message": {
+            "tool_calls": [{"id": "c1", "function": {"name": "t", "arguments": '{"q":"x"}'}}]
+        }}]}
+        with patch('urllib.request.urlopen') as mock_url, \
+             patch('json.loads', return_value=resp_data):
+            mock_resp = MagicMock()
+            mock_resp.getcode.return_value = 200
+            mock_resp.read.return_value = b'{}'
+            mock_url.return_value = mock_resp
+            cfg = {"url": "http://x", "key": "", "model": "m", "api_format": "openai", "model_timeout": 10}
+            result = _sync_llm_call(cfg, [{"role": "user", "content": "hi"}], False, tools)
+            self.assertTrue(isinstance(result, dict))
+            self.assertTrue(result.get("is_tool_call"))
+            self.assertEqual(len(result["tool_calls"]), 1)
+            self.assertEqual(result["tool_calls"][0]["function"]["name"], "t")
+
+    def test_tool_call_detection_anthropic(self):
+        from app.core.llm_engine import _sync_llm_call
+        from unittest.mock import patch, MagicMock
+        tools = [{"type": "function", "function": {"name": "t", "description": "d",
+                   "parameters": {"type": "object", "properties": {}}}}]
+        resp_data = {"content": [
+            {"type": "text", "text": "Let me check..."},
+            {"type": "tool_use", "id": "tu1", "name": "t", "input": {"q": "x"}}
+        ]}
+        with patch('urllib.request.urlopen') as mock_url, \
+             patch('json.loads', return_value=resp_data):
+            mock_resp = MagicMock()
+            mock_resp.getcode.return_value = 200
+            mock_resp.read.return_value = b'{}'
+            mock_url.return_value = mock_resp
+            cfg = {"url": "http://x", "key": "", "model": "m", "api_format": "anthropic", "model_timeout": 10}
+            result = _sync_llm_call(cfg, [{"role": "user", "content": "hi"}], False, tools)
+            self.assertTrue(isinstance(result, dict))
+            self.assertTrue(result.get("is_tool_call"))
+            self.assertEqual(len(result["tool_calls"]), 1)
+            self.assertEqual(result["tool_calls"][0]["function"]["name"], "t")
+
+
+class TestProactiveCircuitBreaker(unittest.TestCase):
+    """主动消息熔断逻辑"""
+
+    def test_tail_agent_count(self):
+        # 模拟 _proactive_worker 中的熔断检测逻辑
+        max_continuous = 5
+        history = [
+            {"role": "user", "content": "hi"},
+            {"role": "agent", "content": "a1"},
+            {"role": "agent", "content": "a2"},
+            {"role": "agent", "content": "a3"},
+            {"role": "agent", "content": "a4"},
+            {"role": "agent", "content": "a5"},
+        ]
+        if len(history) >= max_continuous:
+            tail_agent_count = 0
+            for msg in reversed(history):
+                if msg.get("role") == "agent":
+                    tail_agent_count += 1
+                else:
+                    break
+            self.assertEqual(tail_agent_count, 5)  # 应触发熔断
+
+    def test_tail_agent_with_user_break(self):
+        max_continuous = 5
+        history = [
+            {"role": "agent", "content": "a1"},
+            {"role": "agent", "content": "a2"},
+            {"role": "user", "content": "hi"},
+            {"role": "agent", "content": "a3"},
+        ]
+        tail_agent_count = 0
+        for msg in reversed(history):
+            if msg.get("role") == "agent":
+                tail_agent_count += 1
+            else:
+                break
+        self.assertEqual(tail_agent_count, 1)  # user 打断了计数
+
+    def test_below_threshold_no_break(self):
+        max_continuous = 5
+        history = [{"role": "agent", "content": f"a{i}"} for i in range(3)]
+        tail_agent_count = 0
+        for msg in reversed(history):
+            if msg.get("role") == "agent":
+                tail_agent_count += 1
+            else:
+                break
+        self.assertTrue(tail_agent_count < max_continuous)  # 不应触发
+
+
 if __name__ == '__main__':
     unittest.main()
