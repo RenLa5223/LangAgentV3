@@ -9,6 +9,7 @@ const TOP_ITEMS = [
 ]
 
 const BOTTOM_ITEMS = [
+  { id: 'plugin-center', label: '插件中心', icon: '🧩' },
   { id: 'short-memory', label: '临时记忆', icon: '🔄' },
   { id: 'memory-manage', label: '记忆管理', icon: '🧠' },
   { id: 'memory-archive', label: '记忆归档', icon: '🗄️' },

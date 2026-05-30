@@ -311,6 +311,19 @@ async def _proactive_worker():
             history_file = os.path.join(MEM_DIR, CHAT_HISTORY_FILE)
 
             history = await safe_json_read(history_file, [])
+
+            # 主动消息熔断：末尾连续 agent 消息数达阈值则跳过
+            max_continuous = int(cfg.get("proactive_max_continuous", 5))
+            if len(history) >= max_continuous:
+                tail_agent_count = 0
+                for msg in reversed(history):
+                    if msg.get("role") == "agent":
+                        tail_agent_count += 1
+                    else:
+                        break
+                if tail_agent_count >= max_continuous:
+                    continue
+
             recent = history[-6:]
 
             context_str = ""

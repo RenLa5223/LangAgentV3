@@ -8,6 +8,7 @@ import {
   fetchChatHistory,
   uploadAvatar
 } from '@/api/request.js'
+import SchemaRenderer from '@/components/manage/SchemaRenderer'
 
 // ================================================================
 // Helper: load text file from backend
@@ -351,11 +352,15 @@ function ShortMemoryEditor({ saveHandlerRef }) {
 // 艾宾浩斯遗忘曲线算法 — 前端 JS 翻译自 app/core/config.py:175-185
 // ================================================================
 function getDecayScore(item) {
+  // 星标记忆返回冻结分数，不再衰减
+  if (item?.starred === true) {
+    return parseFloat((item?.frozen_score || item?.importance || 5).toFixed(2))
+  }
   try {
     const imp = Math.max(1, Math.min(10, parseFloat(item?.importance) || 5))
     const timeStr = item?.time || ''
     const dt = new Date(timeStr.replace(' ', 'T'))
-    if (isNaN(dt.getTime())) return imp // no time → assume fresh
+    if (isNaN(dt.getTime())) return imp
     const hoursElapsed = (Date.now() - dt.getTime()) / (1000 * 60 * 60)
     const halfLife = 24.0 * Math.pow(2.0, (imp - 1.0) / 2.0)
     return parseFloat((imp * Math.pow(2.0, -hoursElapsed / halfLife)).toFixed(2))
@@ -452,6 +457,30 @@ function MemoryManageEditor({ saveHandlerRef }) {
     addToast('记忆卡片已删除', 'success')
   }
 
+  const handleToggleStar = async (index) => {
+    const item = items[index]
+    const action = item.starred ? 'unstar' : 'star'
+    try {
+      const { starMemory } = await import('@/api/request.js')
+      const res = await starMemory(index, action)
+      if (res.success) {
+        setItems((prev) => prev.map((it, i) => {
+          if (i !== index) return it
+          // 后端返回的 item 在 unstar 时不带 starred/frozen_score 键，需显式清理
+          const merged = { ...it, ...res.item }
+          if (action === 'unstar') {
+            delete merged.starred
+            delete merged.frozen_score
+          }
+          return merged
+        }))
+        addToast(action === 'star' ? '⭐ 已冻结' : '已取消星标，恢复衰减', 'success')
+      }
+    } catch (e) {
+      addToast('操作失败: ' + e.message, 'error')
+    }
+  }
+
   // Compute max decay score for title border color (old-style)
   const maxScore = items.reduce((max, item) => Math.max(max, getDecayScore(item)), 0)
   const titleColor = getMemoryState(maxScore).color
@@ -465,6 +494,9 @@ function MemoryManageEditor({ saveHandlerRef }) {
         <span>记忆管理</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-text-sub bg-white/50 px-2 py-1 rounded-full border border-border">{items.length} 条</span>
+          <span className="text-xs text-[#f0a500] bg-[#fef3cd] px-2 py-1 rounded-full border border-[#f0a500]/30 font-bold">
+            ⭐ {items.filter(i => i.starred === true).length}/30
+          </span>
           <TokenBadge content={items.map(i => i.content || '').join('')} />
         </div>
       </h1>
@@ -492,14 +524,18 @@ function MemoryManageEditor({ saveHandlerRef }) {
       ) : !parseError ? (
         <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
           {items.map((item, i) => {
+            const starred = item.starred === true
             const score = getDecayScore(item)
-            const state = getMemoryState(score)
+            const state = starred ? { label: '已冻结', color: '#f0a500' } : getMemoryState(score)
             return (
               <div key={i} className="bg-white rounded-xl p-4 shadow-soft border-l-4 flex flex-col gap-2.5"
                 style={{ borderLeftColor: state.color }}>
-                {/* Meta line: time + dot + label + 鲜活度 */}
+                {/* Meta line: time + dot + label + 鲜活度/星标 */}
                 <div className="flex justify-between text-xs text-text-sub font-bold items-center">
-                  <span>归档: {item.time || ''}</span>
+                  <div className="flex items-center gap-2">
+                    <span>归档: {item.time || ''}</span>
+                    {starred && <span className="text-xs">⭐</span>}
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: state.color }} />
                     <span style={{ color: state.color, fontWeight: 'bold' }}>{state.label}</span>
@@ -520,13 +556,25 @@ function MemoryManageEditor({ saveHandlerRef }) {
                   onChange={(e) => updateItem(i, 'content', e.target.value)}
                 />
 
-                <button
-                  onClick={() => deleteItem(i)}
-                  className="text-white border-none rounded-lg py-1.5 px-3 text-xs cursor-pointer transition-opacity duration-200 hover:opacity-80 self-end font-bold"
-                  style={{ background: state.color }}
-                >
-                  抹除
-                </button>
+                {/* Action buttons */}
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => handleToggleStar(i)}
+                    className={`text-lg leading-none border-none rounded-lg py-1 px-2 cursor-pointer transition-all duration-200 hover:scale-110 ${
+                      starred ? '' : 'grayscale opacity-40 hover:opacity-70'
+                    }`}
+                    title={starred ? '取消星标' : '星标'}
+                  >
+                    ⭐
+                  </button>
+                  <button
+                    onClick={() => deleteItem(i)}
+                    className="text-white border-none rounded-lg py-1.5 px-3 text-xs cursor-pointer transition-opacity duration-200 hover:opacity-80 font-bold"
+                    style={{ background: state.color }}
+                  >
+                    抹除
+                  </button>
+                </div>
               </div>
             )
           })}
@@ -906,12 +954,323 @@ function SettingsEditor({ saveHandlerRef }) {
 }
 
 // ================================================================
+// Sub-panel: 插件中心
+// ================================================================
+function PluginPanel({ saveHandlerRef }) {
+  const [plugins, setPlugins] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedPlugin, setSelectedPlugin] = useState(null)
+  const [schemaValues, setSchemaValues] = useState({})
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+
+  const [refreshing, setRefreshing] = useState(false)
+
+  const loadPlugins = async (reload = false) => {
+    if (reload) setRefreshing(true)
+    try {
+      const { fetchPluginsList, reloadPlugins } = await import('@/api/request.js')
+      const data = reload ? await reloadPlugins() : await fetchPluginsList()
+      setPlugins(data.plugins || [])
+      if (reload) addToast('插件列表已刷新', 'success')
+    } catch (e) {
+      addToast('加载插件列表失败: ' + e.message, 'error')
+    } finally {
+      setLoading(false)
+      if (reload) setRefreshing(false)
+    }
+  }
+
+  useEffect(() => { loadPlugins() }, [])
+
+  // 进入插件详情页时加载设置
+  useEffect(() => {
+    if (!selectedPlugin) {
+      setSchemaValues({})
+      setSettingsLoaded(false)
+      return
+    }
+    setSettingsLoaded(false)
+    ;(async () => {
+      try {
+        const { fetchPluginSettings } = await import('@/api/request.js')
+        const data = await fetchPluginSettings(selectedPlugin.id)
+        setSchemaValues(data.settings || {})
+      } catch (e) {
+        // settings.json 尚未创建，使用默认空对象
+        setSchemaValues({})
+      } finally {
+        setSettingsLoaded(true)
+      }
+    })()
+  }, [selectedPlugin?.id])
+
+  useEffect(() => {
+    saveHandlerRef.current = () => Promise.resolve()
+  }, [saveHandlerRef])
+
+  const handleToggle = async (pluginId, enabled) => {
+    try {
+      const { togglePlugin } = await import('@/api/request.js')
+      await togglePlugin(pluginId, enabled, undefined)
+      setPlugins((prev) => prev.map((p) => (p.id === pluginId ? { ...p, enabled } : p)))
+      addToast(enabled ? '插件已启用（需重启生效）' : '插件已禁用', 'success')
+    } catch (e) {
+      addToast('操作失败: ' + e.message, 'error')
+    }
+  }
+
+  // Schema 值变更 —— 即时计算快照 + 静默落库
+  const handleSchemaChange = async (key, value) => {
+    const updatedSettings = { ...schemaValues, [key]: value }
+    setSchemaValues(updatedSettings)
+
+    if (selectedPlugin) {
+      try {
+        const { savePluginSettings } = await import('@/api/request.js')
+        await savePluginSettings(selectedPlugin.id, updatedSettings)
+      } catch (e) {
+        addToast('自动保存配置失败: ' + e.message, 'error')
+      }
+    }
+  }
+
+  // 保存插件设置
+  const handleSaveSettings = async () => {
+    if (!selectedPlugin) return
+    setSaving(true)
+    try {
+      const { savePluginSettings } = await import('@/api/request.js')
+      await savePluginSettings(selectedPlugin.id, schemaValues)
+      addToast('插件设置已保存', 'success')
+    } catch (e) {
+      addToast('保存失败: ' + e.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Schema 按钮动作处理
+  const handleSchemaAction = async (key, action, payload) => {
+    if (action === 'test') {
+      addToast(`[${key}] 测试请求已发送`, 'info')
+    } else if (action === 'reset') {
+      const updatedSettings = { ...schemaValues, [key]: null }
+      setSchemaValues(updatedSettings)
+      addToast(`[${key}] 已重置`, 'info')
+      if (selectedPlugin) {
+        try {
+          const { savePluginSettings } = await import('@/api/request.js')
+          await savePluginSettings(selectedPlugin.id, updatedSettings)
+        } catch (e) {
+          addToast('自动保存配置失败: ' + e.message, 'error')
+        }
+      }
+    } else if (action === 'save') {
+      await handleSaveSettings()
+    }
+    // 插件可自定义 action，由父组件透传处理
+  }
+
+  // IPC 通信桥：postMessage 代理，iframe 内插件可安全请求系统能力
+  useEffect(() => {
+    const handler = (event) => {
+      const msg = event.data
+      if (!msg || typeof msg !== 'object' || !msg.type) return
+      if (!msg.type.startsWith('LangAgent:')) return
+
+      if (msg.type === 'LangAgent:getConfig') {
+        const cfg = useConfigStore.getState()
+        const key = msg.payload?.key
+        event.source.postMessage(
+          { type: 'LangAgent:response', requestId: msg.requestId, payload: key ? cfg[key] : cfg },
+          '*'
+        )
+      } else if (msg.type === 'LangAgent:getAppState') {
+        event.source.postMessage(
+          { type: 'LangAgent:response', requestId: msg.requestId, payload: useAppStore.getState() },
+          '*'
+        )
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
+  // Expose LangAgentAPI on window for iframe access
+  useEffect(() => {
+    window.LangAgentAPI = {
+      getConfig: (key) => {
+        const cfg = useConfigStore.getState()
+        return key ? cfg[key] : cfg
+      },
+      getAppState: () => useAppStore.getState(),
+      getServerBaseUrl: () => useAppStore.getState().serverBaseUrl,
+      addToast: (msg, type) => useAppStore.getState().addToast(msg, type)
+    }
+    return () => { delete window.LangAgentAPI }
+  }, [])
+
+  if (loading) return <div className="flex-1 flex items-center justify-center text-text-sub">加载中...</div>
+
+  // Detail view: 插件设置页（SchemaRenderer 驱动）
+  if (selectedPlugin) {
+    const uiSchema = selectedPlugin.ui_schema || []
+
+    return (
+      <div className="flex flex-col flex-1">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6 bg-white/40 p-4 rounded-2xl border border-white/60 shadow-sm">
+          {/* 左侧：返回按钮 */}
+          <button
+            onClick={() => setSelectedPlugin(null)}
+            className="shrink-0 px-5 py-2.5 rounded-xl bg-white border border-border shadow-[4px_4px_10px_rgba(188,138,95,0.08),-4px_-4px_10px_rgba(255,255,255,0.8)] text-sm font-bold text-text-main hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2 cursor-pointer"
+          >
+            ← 返回列表
+          </button>
+
+          {/* 中间：插件信息（支持长文本滚动） */}
+          <div className="flex-1 min-w-0 flex flex-col items-center mx-6">
+            <div className="flex items-center gap-2 mb-1">
+              {selectedPlugin.icon && <span className="text-2xl">{selectedPlugin.icon}</span>}
+              <h2 className="text-lg font-bold text-text-main m-0 truncate">{selectedPlugin.name}</h2>
+              <span className="text-xs text-text-sub bg-white/80 px-2 py-0.5 rounded-full border border-border shrink-0">v{selectedPlugin.version}</span>
+            </div>
+            {selectedPlugin.description && (
+              <div className="text-xs text-text-sub text-center w-full max-h-[4.5rem] overflow-y-auto px-2 custom-scrollbar">
+                {selectedPlugin.description}
+              </div>
+            )}
+          </div>
+
+          {/* 右侧占位：与左侧返回按钮等宽，保持中间内容真正居中 */}
+          <div className="shrink-0 w-[120px]" />
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {!settingsLoaded ? (
+            <div className="flex items-center justify-center py-12 text-text-sub">
+              <span className="animate-pulse">加载设置中...</span>
+            </div>
+          ) : uiSchema.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-text-sub">
+              <span className="text-4xl">⚙️</span>
+              <p className="text-sm m-0">此插件没有提供配置界面</p>
+              <p className="text-xs opacity-60 m-0">
+                插件开发者可在 manifest.json 中添加 ui_schema 字段来定义设置表单
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white/60 rounded-2xl shadow-soft p-6 max-w-[700px]">
+              <SchemaRenderer
+                schema={uiSchema}
+                values={schemaValues}
+                onChange={handleSchemaChange}
+                onAction={handleSchemaAction}
+                pluginId={selectedPlugin.id}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // List view: single-column cards
+  return (
+    <div className="flex flex-col flex-1">
+      <h1 className="text-text-sub border-l-[5px] pl-4 mt-0 mb-5 text-2xl flex justify-between items-center"
+        style={{ borderLeftColor: '#7ec49b' }}>
+        <span>插件中心</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-sub bg-white/50 px-2 py-1 rounded-full border border-border">{plugins.length} 个插件</span>
+          <button
+            onClick={() => loadPlugins(true)}
+            disabled={refreshing}
+            className={"ml-2 bg-white border border-border px-3 py-1 rounded-lg text-sm font-bold cursor-pointer hover:shadow-soft transition-all text-primary" + (refreshing ? " opacity-50 pointer-events-none" : "")}
+          >
+            {refreshing ? '刷新中...' : '刷新插件'}
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const { openPluginsFolder } = await import('@/api/request.js')
+                await openPluginsFolder()
+              } catch (e) { addToast('打开失败: ' + e.message, 'error') }
+            }}
+            className="ml-1 bg-white border border-border px-3 py-1 rounded-lg text-sm font-bold cursor-pointer hover:shadow-soft transition-all text-text-sub"
+          >
+            管理插件
+          </button>
+        </div>
+      </h1>
+
+      {plugins.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-sub">
+          <span className="text-4xl">🧩</span>
+          <p className="text-sm m-0">暂无已安装的插件</p>
+          <p className="text-xs opacity-60 m-0">将插件文件夹放入 Data/plugins 目录即可自动发现</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6 flex-1 overflow-y-auto pr-2">
+          <div className="flex flex-col gap-4">
+            {plugins.map((p) => (
+              <div key={p.id}
+                className={`bg-white rounded-xl p-4 border-l-4 flex flex-col gap-3 transition-all ${
+                  p.enabled
+                    ? 'shadow-soft cursor-pointer hover:-translate-y-0.5 hover:shadow-[6px_6px_16px_rgba(188,138,95,0.1),-6px_-6px_16px_rgba(255,255,255,0.8)]'
+                    : 'opacity-50 grayscale cursor-not-allowed shadow-none'
+                }`}
+                style={{ borderLeftColor: p.enabled ? '#52b788' : '#d4a373' }}
+                onClick={() => { if (p.enabled) setSelectedPlugin(p) }}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    {p.icon && <span className="text-xl">{p.icon}</span>}
+                    <div>
+                      <div className="font-bold text-text-main text-sm">{p.name}</div>
+                      <div className="text-xs text-text-sub">v{p.version}</div>
+                    </div>
+                    {p.description && (
+                      <span className="text-xs text-text-sub/70 ml-2 truncate max-w-[240px] hidden sm:inline">{p.description}</span>
+                    )}
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={p.enabled}
+                      onChange={() => handleToggle(p.id, !p.enabled)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-300 rounded-full peer peer-checked:bg-[#52b788] peer-focus:ring-2 peer-focus:ring-[#52b788]/30 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                  </label>
+                </div>
+                {p.hooks && p.hooks.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {p.hooks.map((h) => (
+                      <span key={h} className="text-[0.6rem] px-2 py-0.5 rounded-full bg-primary-light/50 text-primary-dark font-bold">{h}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ================================================================
 // Panel registry
 // ================================================================
 const PANELS = {
   'agent-profile': AgentProfileEditor,
   'user-profile': UserProfileEditor,
   'user-portrait': UserPortraitEditor,
+  'plugin-center': PluginPanel,
   'short-memory': ShortMemoryEditor,
   'memory-manage': MemoryManageEditor,
   'memory-archive': MemoryArchiveEditor,
@@ -939,19 +1298,21 @@ export default function EditorPanel({ activeTab }) {
       <div className="bg-white/60 rounded-2xl shadow-soft p-7 w-full max-w-[900px] flex flex-col min-h-full box-border">
         <Panel saveHandlerRef={saveHandlerRef} />
 
-        {/* Save button */}
-        <div className="mt-auto pt-4 text-right">
-          <button
-            onClick={handleSave}
-            className="bg-primary text-white px-8 py-3 rounded-2xl font-bold text-base
-                       shadow-[0_10px_20px_rgba(212,163,115,0.3)]
-                       hover:bg-primary-dark hover:-translate-y-0.5
-                       active:translate-y-px
-                       transition-all duration-300 cursor-pointer border-none"
-          >
-            保存修改
-          </button>
-        </div>
+        {/* Save button — 插件中心有自己的保存逻辑，隐藏全局按钮 */}
+        {activeTab !== 'plugin-center' && (
+          <div className="mt-auto pt-4 text-right">
+            <button
+              onClick={handleSave}
+              className="bg-primary text-white px-8 py-3 rounded-2xl font-bold text-base
+                         shadow-[0_10px_20px_rgba(212,163,115,0.3)]
+                         hover:bg-primary-dark hover:-translate-y-0.5
+                         active:translate-y-px
+                         transition-all duration-300 cursor-pointer border-none"
+            >
+              保存修改
+            </button>
+          </div>
+        )}
       </div>
     </main>
   )

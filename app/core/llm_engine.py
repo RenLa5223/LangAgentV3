@@ -93,13 +93,20 @@ async def build_llm_messages(system_prompt: str, chat_history: list, current_use
     if current_user_msg:
         messages.append({"role": "user", "content": current_user_msg})
 
+    # HOOK: 上下文注入，插件可在最后一条用户消息中附加上下文
+    try:
+        from app.core.plugin_manager import plugin_manager
+        messages = await plugin_manager.dispatch_modifier("HOOK_BEFORE_LLM_PROMPT", messages)
+    except Exception:
+        pass
+
     return messages
 
 
 # ============================================================================
 # LLM 调用核心（带断路器）—— 100% 保留原逻辑
 # ============================================================================
-async def call_llm_with_circuit_breaker(cfg: dict, messages: list, use_fallback: bool = True) -> str:
+async def call_llm_with_circuit_breaker(cfg: dict, messages: list, use_fallback: bool = True, tools: list = None) -> str | dict:
     """调用 LLM API，带断路器模式"""
 
     # 检查冷却期
@@ -108,22 +115,23 @@ async def call_llm_with_circuit_breaker(cfg: dict, messages: list, use_fallback:
         return f"{_MODEL_ERR}|触发断路保护(冷却中)" if use_fallback else None
 
     # 将同步 HTTP 调用包装为线程池异步
-    result = await asyncio.to_thread(_sync_llm_call, cfg, messages, use_fallback)
+    result = await asyncio.to_thread(_sync_llm_call, cfg, messages, use_fallback, tools)
 
     # 在线程池返回后，在主事件循环中更新状态
-    if result and result.startswith(_MODEL_ERR):
+    is_err = isinstance(result, str) and result.startswith(_MODEL_ERR)
+    if is_err:
         fail_count = await state.inc_failures()
         if fail_count >= CIRCUIT_BREAKER_TRIP_COUNT:
             await state.set_api_cooldown(time.time() + CIRCUIT_BREAKER_COOLDOWN)
         await state.set_conn_status("offline")
-    else:
+    elif result is not None:
         await state.reset_failures()
         await state.set_conn_status("online")
 
     return result
 
 
-def _sync_llm_call(cfg: dict, messages: list, use_fallback: bool) -> str:
+def _sync_llm_call(cfg: dict, messages: list, use_fallback: bool, tools: list = None) -> str | dict:
     """同步 LLM 调用核心（在线程池中执行）"""
     timeout = int(cfg.get('model_timeout', MODEL_TIMEOUT_DEFAULT))
     api_format = cfg.get("api_format", API_FORMAT_OPENAI)
@@ -141,8 +149,22 @@ def _sync_llm_call(cfg: dict, messages: list, use_fallback: bool) -> str:
         payload = {"model": cfg['model'], "messages": anthropic_msgs, "max_tokens": ANTHROPIC_MAX_TOKENS, "stream": False}
         if system_text:
             payload["system"] = system_text
+        if tools:
+            anthropic_tools = []
+            for t in tools:
+                func = t.get("function", {})
+                anthropic_tools.append({
+                    "name": func.get("name"),
+                    "description": func.get("description"),
+                    "input_schema": func.get("parameters", {"type": "object", "properties": {}})
+                })
+            payload["tools"] = anthropic_tools
+            payload["tool_choice"] = {"type": "auto"}
     else:
         payload = {"model": cfg['model'], "messages": messages, "stream": False}
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
 
     last_err_msg = "Unknown Error"
     for attempt in range(LLM_RETRY_ATTEMPTS):
@@ -159,8 +181,22 @@ def _sync_llm_call(cfg: dict, messages: list, use_fallback: bool) -> str:
                 payload = {"model": cfg['model'], "messages": anthropic_msgs, "max_tokens": ANTHROPIC_MAX_TOKENS, "stream": False}
                 if system_text:
                     payload["system"] = system_text
+                if tools:
+                    anthropic_tools_retry = []
+                    for t in tools:
+                        func = t.get("function", {})
+                        anthropic_tools_retry.append({
+                            "name": func.get("name"),
+                            "description": func.get("description"),
+                            "input_schema": func.get("parameters", {"type": "object", "properties": {}})
+                        })
+                    payload["tools"] = anthropic_tools_retry
+                    payload["tool_choice"] = {"type": "auto"}
             else:
                 payload = {"model": cfg['model'], "messages": messages, "stream": False}
+                if tools:
+                    payload["tools"] = tools
+                    payload["tool_choice"] = "auto"
 
         try:
             req = urllib.request.Request(cfg['url'], data=json.dumps(payload).encode('utf-8'), method='POST')
@@ -168,6 +204,7 @@ def _sync_llm_call(cfg: dict, messages: list, use_fallback: bool) -> str:
             if cfg['key'].strip():
                 if api_format == API_FORMAT_ANTHROPIC:
                     req.add_header('x-api-key', cfg['key'])
+                    req.add_header('anthropic-version', '2023-06-01')
                 else:
                     req.add_header('Authorization', f"Bearer {cfg['key']}")
 
@@ -183,13 +220,27 @@ def _sync_llm_call(cfg: dict, messages: list, use_fallback: bool) -> str:
                     err_msg = str(api_err)[:200]
                 raise Exception(f"API Error: {err_msg}")
 
-            # 提取回复文本
+            # 提取回复文本 / 工具调用意图
             if api_format == API_FORMAT_ANTHROPIC:
-                reply = "".join([b.get("text", "") for b in resp_data.get("content", [])])
+                content_blocks = resp_data.get("content", [])
+                tool_uses = [b for b in content_blocks if b.get("type") == "tool_use"]
+                if tool_uses:
+                    standard_tool_calls = []
+                    for tu in tool_uses:
+                        standard_tool_calls.append({
+                            "id": tu.get("id"),
+                            "function": {
+                                "name": tu.get("name"),
+                                "arguments": json.dumps(tu.get("input", {}))
+                            }
+                        })
+                    return {"is_tool_call": True, "tool_calls": standard_tool_calls, "raw_message": content_blocks}
+                reply = "".join([b.get("text", "") for b in content_blocks if b.get("type") == "text"])
             else:
-                reply = (resp_data.get('choices', [{}])[0].get('message', {}).get('content', '')
-                         or resp_data.get('response', '')
-                         or resp_data.get('message', {}).get('content', ''))
+                msg = resp_data.get('choices', [{}])[0].get('message', {})
+                if msg.get("tool_calls"):
+                    return {"is_tool_call": True, "tool_calls": msg.get("tool_calls"), "raw_message": msg}
+                reply = msg.get('content', '') or resp_data.get('response', '') or resp_data.get('message', {}).get('content', '')
             if reply:
                 reply = _strip_think(reply)
 

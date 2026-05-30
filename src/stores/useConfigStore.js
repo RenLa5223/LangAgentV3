@@ -38,7 +38,7 @@ export const useConfigStore = create((set, get) => ({
           url: cfg.api_url || '',
           key: cfg.api_key || '',
           model: cfg.model_name || '',
-          format: cfg.api_format || 'openai',
+          format: cfg.api_format || 'anthropic',
           timeout: cfg.model_timeout ? Math.round(cfg.model_timeout / 60) : 5  // backend stores seconds, we use minutes
         }
       }

@@ -78,6 +78,17 @@ async def add_to_archive(messages: list):
 
 async def search(query: str, top_k: int = RAG_SEARCH_TOP_K, threshold: float = RAG_SEARCH_THRESHOLD) -> list:
     """BM25 检索历史记忆区块"""
+    # HOOK: 外部 RAG 劫持，插件可接管检索
+    try:
+        from app.core.plugin_manager import plugin_manager
+        override_docs = await plugin_manager.dispatch_override(
+            "HOOK_OVERRIDE_RAG_SEARCH", query=query, top_k=top_k
+        )
+        if override_docs is not None:
+            return override_docs
+    except Exception:
+        pass
+
     if not query:
         return []
     db = await safe_json_read(ARCHIVE_DB_FILE, [])

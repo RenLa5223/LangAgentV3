@@ -13,7 +13,7 @@ from pydantic import Field
 def _resolve_version() -> str:
     """
     从 tauri.conf.json 读取版本号（单一事实来源）。
-    打包后找不到该文件时回退到 "1.0.2"。
+    打包后找不到该文件时回退到 "1.0.5"。
     """
     # 寻找项目根目录（从 app/core/config.py → app/core → app → project root）
     candidates = []
@@ -30,11 +30,11 @@ def _resolve_version() -> str:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            version = data.get("package", {}).get("version", "1.0.2")
+            version = data.get("version", "1.0.5")
             return version
         except Exception:
             continue
-    return "1.0.2"
+    return "1.0.5"
 
 
 # ============================================================================
@@ -83,11 +83,12 @@ ARCHIVE_DIR = os.path.join(_DATA_DIR, "memory_archive")
 TEMP_IMG_DIR = os.path.join(_DATA_DIR, "temp_images")
 MEMORY_RETRY_DIR = os.path.join(_DATA_DIR, "memory_retry")
 MUSIC_DIR = os.path.join(_DATA_DIR, "music")
+PLUGIN_DIR = os.path.join(_DATA_DIR, "plugins")
 
 # 确保所有目录存在
 for _d in [_DATA_DIR, MEM_DIR, CONFIG_DIR, AGENT_AVATAR_DIR, USER_AVATAR_DIR,
            AGENT_PROFILE_DIR, USER_PROFILE_DIR, USER_PORTRAIT_DIR,
-           ARCHIVE_DIR, TEMP_IMG_DIR, MEMORY_RETRY_DIR, MUSIC_DIR]:
+           ARCHIVE_DIR, TEMP_IMG_DIR, MEMORY_RETRY_DIR, MUSIC_DIR, PLUGIN_DIR]:
     os.makedirs(_d, exist_ok=True)
 
 
@@ -182,7 +183,9 @@ state = AppState()
 # 艾宾浩斯遗忘曲线算法（100% 保留原公式）
 # ============================================================================
 def get_decay_score(item: dict) -> float:
-    """计算记忆条目的衰减分数"""
+    """计算记忆条目的衰减分数，星标记忆返回冻结分数"""
+    if item.get('starred') is True:
+        return float(item.get('frozen_score', item.get('importance', 5)))
     from datetime import datetime as _dt
     imp = max(1, min(10, float(item.get('importance', 5))))
     try:

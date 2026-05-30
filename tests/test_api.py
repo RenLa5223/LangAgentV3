@@ -22,7 +22,7 @@ class TestRootEndpoints(unittest.TestCase):
 
     def test_version(self):
         resp = client.get('/api/version')
-        self.assertEqual(resp.json()['version'], '1.0.2')
+        self.assertEqual(resp.json()['version'], '1.0.5')
 
     def test_health(self):
         resp = client.get('/api/health')

@@ -194,6 +194,63 @@ export function getMusicStreamUrl(filename) {
   return url(`/api/music/stream/${encodeURIComponent(filename)}`)
 }
 
+// ---- 插件管理 ----
+export async function fetchPluginsList() {
+  const res = await fetch(url('/api/plugins/list'))
+  if (res.ok) return await res.json()
+  throw new Error('Failed to fetch plugins list')
+}
+
+export async function reloadPlugins() {
+  const res = await fetch(url('/api/plugins/reload'), { method: 'POST' })
+  if (res.ok) return await res.json()
+  throw new Error('Failed to reload plugins')
+}
+
+export async function togglePlugin(pluginId, enabled, blocked) {
+  try {
+    return await apiPost('/api/plugins/toggle', { plugin_id: pluginId, enabled, blocked })
+  } catch (e) {
+    handleTokenError(e)
+    throw e
+  }
+}
+
+export async function fetchPluginSettings(pluginId) {
+  const res = await fetch(url(`/api/plugins/settings/${encodeURIComponent(pluginId)}`))
+  if (res.ok) return await res.json()
+  throw new Error('Failed to fetch plugin settings')
+}
+
+export async function savePluginSettings(pluginId, settings) {
+  try {
+    return await apiPost(`/api/plugins/settings/${encodeURIComponent(pluginId)}`, { settings })
+  } catch (e) {
+    handleTokenError(e)
+    throw e
+  }
+}
+
+// ---- 记忆星标 ----
+export async function openPluginsFolder() {
+  const res = await fetch(url('/api/plugins/open_folder'))
+  if (res.ok) return await res.json()
+  throw new Error('Failed to open plugins folder')
+}
+
+export async function starMemory(itemIndex, action) {
+  const res = await fetch(url('/api/memory/star'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item_index: itemIndex, action })
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  return await res.json()
+}
+
 // ---- 重置 ----
 export async function resetSystem() {
   try {

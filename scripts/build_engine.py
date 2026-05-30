@@ -81,15 +81,16 @@ def main():
         "app", "app.main", "app.api", "app.core", "app.services", "app.utils",
         "app.api.router", "app.api.chat", "app.api.config_endpoints",
         "app.api.system", "app.api.files", "app.api.deps",
+        "app.api.memory_endpoints", "app.api.webhook", "app.api.plugins",
         "app.core.config", "app.core.llm_engine", "app.core.memory_engine",
-        "app.core.rag_engine", "app.core.security",
+        "app.core.rag_engine", "app.core.security", "app.core.plugin_manager",
         "app.services.chat_service", "app.services.config_service",
         "app.services.rag_service",
         "app.utils.fs_lock", "app.utils.logging", "app.utils.constants",
-        "asyncio",
+        "asyncio", "html",
         "urllib.request", "urllib.error",
         "json", "re", "hashlib", "hmac", "uuid", "secrets",
-        "mimetypes", "base64", "platform",
+        "mimetypes", "base64", "platform", "importlib.util",
     ]
 
     hidden_import_args = []

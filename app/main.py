@@ -61,6 +61,10 @@ async def lifespan(app: FastAPI):
     rag_task = asyncio.create_task(start_rag_worker())
     _background_tasks.append(rag_task)
 
+    # 5. 初始化插件管理器
+    from app.core.plugin_manager import plugin_manager
+    plugin_manager.load_plugins()
+
     yield
 
     # ====== Shutdown ======

@@ -14,7 +14,7 @@ async def get_config() -> dict:
     config_path = os.path.join(CONFIG_DIR, CONFIG_FILE)
     cfg = {
         "url": "", "key": "", "model": "",
-        "ai_name": "", "user_name": "", "api_format": API_FORMAT_OPENAI
+        "ai_name": "", "user_name": "", "api_format": "anthropic"
     }
     loaded = await safe_json_read(config_path, {})
     cfg.update(loaded)

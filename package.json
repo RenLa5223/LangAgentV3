@@ -1,6 +1,6 @@
 {
   "name": "LangAgentV3",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "本地运行的 Agent",
   "scripts": {
     "dev": "vite",
