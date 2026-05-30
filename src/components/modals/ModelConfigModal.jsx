@@ -113,8 +113,8 @@ export default function ModelConfigModal() {
             onChange={(e) => handleFormatChange(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl border border-border bg-white shadow-inner text-sm text-text-main cursor-pointer outline-none font-[inherit]"
           >
-            <option value="anthropic">Anthropic</option>
             <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
           </select>
         </div>
 
